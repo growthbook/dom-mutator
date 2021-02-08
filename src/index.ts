@@ -39,7 +39,26 @@ const applyMutation = (targetNode: Element, type: MutationType, value:string) =>
   };
   targetNode.innerHTML = value;
  } else if (type === "setAttribute") {
-  //targetNode.setAttribute(value); set Attribute needs name/value pairs. ?
+  //targetNode.setAttribute(value); set Attribute needs name/value pairs. 
+  // prop="value"
+  let rx = /^(.*)=\"(.*)\"/;
+  let match = rx.exec(value);
+  if(match?.length && match.length === 3) {
+    let key = match[1];
+    let val = match[2];
+    let originalValue = targetNode.getAttribute(key);
+    if(originalValue) {
+      unapplyFn = () => {
+        targetNode.setAttribute(key, originalValue!);
+      };
+    } else {
+      unapplyFn = () => {
+        targetNode.removeAttribute(key);
+      };
+    }
+    targetNode.setAttribute(key, val);
+  }
+  
  }
 }
 
