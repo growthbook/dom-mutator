@@ -6,7 +6,7 @@ export type MutationType =
   | 'setAttribute';
 
 // attr="value" format
-const setAttributeRegex = /^([^=\s]+)\s*=\s*"([^"]*)"/;
+const setAttributeRegex = /^([a-zA-Z:_][a-zA-Z0-9:_.-]*)\s*=\s*"([^"]*)"/;
 
 const applyMutation = (
   targetNode: Element,
@@ -65,7 +65,6 @@ const applyMutation = (
     if (match?.length === 3) {
       const key = match[1];
       const val = match[2];
-      // TODO: if attr name is not valid, this may break
       const originalValue = targetNode.getAttribute(key);
       if (originalValue === val || (!originalValue && !val)) {
         return null;
@@ -92,16 +91,7 @@ const waitingToAppear: {
   selector: string;
   onAppear: (el: Element) => void;
 }[] = [];
-const observer = new MutationObserver(mutations => {
-  if (!waitingToAppear.length) return;
-
-  // Only run if new nodes have been added
-  let hasAddedNodes = false;
-  mutations.forEach(mutation => {
-    if (!mutation.addedNodes) hasAddedNodes = true;
-  });
-  if (!hasAddedNodes) return;
-
+function processWaitingToAppear() {
   waitingToAppear.forEach(({ selector, onAppear }, i) => {
     const el = document.querySelector(selector);
     if (el) {
@@ -109,16 +99,33 @@ const observer = new MutationObserver(mutations => {
       waitingToAppear.splice(i, 1);
     }
   });
-});
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-  attributes: false,
-  characterData: false,
+}
+
+const observer = new MutationObserver(mutations => {
+  if (!waitingToAppear.length) return;
+
+  // Only run if new nodes have been added
+  let hasAddedNodes = false;
+  mutations.forEach(mutation => {
+    if (mutation.addedNodes.length) hasAddedNodes = true;
+  });
+  if (!hasAddedNodes) return;
+
+  processWaitingToAppear();
 });
 export function disconnectGlobalObserver() {
   observer.disconnect();
 }
+export function connectGlobalObserver() {
+  processWaitingToAppear();
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: false,
+    characterData: false,
+  });
+}
+connectGlobalObserver();
 
 function modifyAndWatch(
   el: Element,
@@ -152,7 +159,7 @@ function modifyAndWatch(
 
   let elObserver: MutationObserver;
   if (init) {
-    const elObserver = new MutationObserver(() => {
+    elObserver = new MutationObserver(() => {
       const res = applyMutation(el, type, value);
       // If the value changed, use a new unapply function to go back to the most recent external change
       if (res) {

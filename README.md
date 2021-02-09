@@ -1,5 +1,7 @@
 # DOM Mutator
 
+![Build Status](https://github.com/growthbook/dom-mutator/workflows/CI/badge.svg)
+
 **Development In Progress - DO NOT USE!!!**
 
 Apply persistent DOM mutations on top of anything (static HTML, React, Vue, etc.)
@@ -8,8 +10,8 @@ Particularly useful for A/B testing.
 
 Features:
 
-*  No dependencies, written in Typescript
-*  Super fast and light-weight
+*  No dependencies, written in Typescript, 100% test coverage
+*  Light-weight (< 1Kb) and super fast (using MutationObservers)
 *  If an element doesn't exist yet, wait for it to appear
 *  If an element is updated externally (e.g. a React render), re-apply the mutation immediately
 *  Ability to revert a mutation at any time
