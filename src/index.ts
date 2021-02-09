@@ -8,6 +8,12 @@ export type MutationType =
 // attr="value" format
 const setAttributeRegex = /^([a-zA-Z:_][a-zA-Z0-9:_.-]*)\s*=\s*"([^"]*)"/;
 
+const transformContainer = document.createElement('div');
+function getTransformedHTML(html: string) {
+  transformContainer.innerHTML = html;
+  return transformContainer.innerHTML;
+}
+
 const applyMutation = (
   targetNode: Element,
   type: MutationType,
@@ -41,8 +47,8 @@ const applyMutation = (
       targetNode.className = originalClassName;
     };
   } else if (type === 'appendHTML') {
+    value = getTransformedHTML(value);
     const originalHTML = targetNode.innerHTML;
-    // TODO: this will break when value is not valid HTML
     if (originalHTML.substr(-1 * value.length) === value) {
       return null;
     }
@@ -51,8 +57,8 @@ const applyMutation = (
       targetNode.innerHTML = originalHTML;
     };
   } else if (type === 'setHTML') {
+    value = getTransformedHTML(value);
     const originalHTML = targetNode.innerHTML;
-    // TODO: this will break when value is not valid HTML
     if (originalHTML === value) {
       return null;
     }

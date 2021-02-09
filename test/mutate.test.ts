@@ -185,4 +185,17 @@ describe('mutate', () => {
     await new Promise(res => setTimeout(res, 17));
     expect(document.body.innerHTML).toEqual('');
   });
+
+  it('handles appending invalid html', async () => {
+    document.body.innerHTML = '<div></div>';
+    const el = document.querySelector('div');
+    if (!el) return;
+    cleanup(mutate('div', 'appendHTML', '<b>foo'));
+
+    // Force mutation observer to fire for the element
+    el.innerHTML = 'bar';
+    await new Promise(res => setTimeout(res, 17));
+    expect(el.innerHTML).toEqual('bar<b>foo</b>');
+    revertAll();
+  });
 });
