@@ -1,4 +1,4 @@
-import { mutate } from '../src';
+import mutate from '../src';
 
 describe('mutate', () => {
   it('works', () => {

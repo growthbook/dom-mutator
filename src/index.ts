@@ -5,129 +5,185 @@ export type MutationType =
   | 'setHTML'
   | 'setAttribute';
 
-  
-let unapplyFn: Function;
+// attr="value" format
+const setAttributeRegex = /^([^=\s]+)\s*=\s*"([^"]*)"/;
 
-const applyMutation = (targetNode: Element, type: MutationType, value:string) => {
- if(type === 'addClass') {
-  if(!targetNode.className.match(new RegExp("\\b"+value+"\\b"))) {
-    let originalClassName = targetNode.className;
-    unapplyFn = () => {
-      targetNode.className = originalClassName;
-    };
-   targetNode.className += " "+value;
-  }
- } else if (type === "removeClass") {
-   if(targetNode.className.match(new RegExp("\\b"+value+"\\b"))) {
-    let originalClassName = targetNode.className;
-    unapplyFn = () => {
-      targetNode.className = originalClassName;
-    };
-    targetNode.className = targetNode.className.replace(value, '');
-   }
- } else if (type === "appendHTML") {
-   // todo: make sure if there is a mutation event, we don't reapply this in a stupid way
-  let originalHTML = targetNode.innerHTML;
-  unapplyFn = () => {
-    targetNode.innerHTML = originalHTML;
-  };
-  targetNode.innerHTML = targetNode.innerHTML+value;
- } else if (type === "setHTML") {
-  let originalHTML = targetNode.innerHTML;
-  unapplyFn = () => {
-    targetNode.innerHTML = originalHTML;
-  };
-  targetNode.innerHTML = value;
- } else if (type === "setAttribute") {
-  //targetNode.setAttribute(value); set Attribute needs name/value pairs. 
-  // prop="value"
-  let rx = /^(.*)=\"(.*)\"/;
-  let match = rx.exec(value);
-  if(match?.length && match.length === 3) {
-    let key = match[1];
-    let val = match[2];
-    let originalValue = targetNode.getAttribute(key);
-    if(originalValue) {
-      unapplyFn = () => {
-        targetNode.setAttribute(key, originalValue!);
-      };
-    } else {
-      unapplyFn = () => {
-        targetNode.removeAttribute(key);
-      };
+const applyMutation = (
+  targetNode: Element,
+  type: MutationType,
+  value: string
+): null | (() => void) => {
+  if (type === 'addClass') {
+    if (targetNode.className.match(new RegExp('\\b' + value + '\\b'))) {
+      return null;
     }
-    targetNode.setAttribute(key, val);
-  }
-  
- }
-}
+    const originalClassName = targetNode.className;
+    targetNode.className += ' ' + value;
+    return () => {
+      targetNode.className = originalClassName;
+    };
+  } else if (type === 'removeClass') {
+    if (!targetNode.className.match(new RegExp('\\b' + value + '\\b'))) {
+      return null;
+    }
+    const originalClassName = targetNode.className;
+    targetNode.className = targetNode.className.replace(value, '');
+    return () => {
+      targetNode.className = originalClassName;
+    };
+  } else if (type === 'appendHTML') {
+    const originalHTML = targetNode.innerHTML;
+    // TODO: this will break when value is not valid HTML
+    if (originalHTML.substr(-1 * value.length) === value) {
+      return null;
+    }
+    targetNode.innerHTML += value;
+    return () => {
+      targetNode.innerHTML = originalHTML;
+    };
+  } else if (type === 'setHTML') {
+    const originalHTML = targetNode.innerHTML;
+    // TODO: this will break when value is not valid HTML
+    if (originalHTML === value) {
+      return null;
+    }
+    targetNode.innerHTML = value;
+    return () => {
+      targetNode.innerHTML = originalHTML;
+    };
+  } else if (type === 'setAttribute') {
+    let match = setAttributeRegex.exec(value);
+    if (match?.length === 3) {
+      const key = match[1];
+      const val = match[2];
+      // TODO: if attr name is not valid, this may break
+      const originalValue = targetNode.getAttribute(key);
+      if (originalValue === val || (!originalValue && !val)) {
+        return null;
+      }
 
-const mutationConfig = {
-  childList: true
-, subtree: true
-, attributes: false
-, characterData: false
+      targetNode.setAttribute(key, val);
+      if (originalValue) {
+        return () => {
+          targetNode.setAttribute(key, originalValue!);
+        };
+      } else {
+        return () => {
+          targetNode.removeAttribute(key);
+        };
+      }
+    }
+  }
+
+  return null;
 };
 
-export function mutate(
+// Observer for elements that don't exist in the DOM yet
+const waitingToAppear: {
+  selector: string;
+  onAppear: (el: Element) => void;
+}[] = [];
+const observer = new MutationObserver(mutations => {
+  if (!waitingToAppear.length) return;
+
+  // Only run if new nodes have been added
+  let hasAddedNodes = false;
+  mutations.forEach(mutation => {
+    if (!mutation.addedNodes) hasAddedNodes = true;
+  });
+  if (!hasAddedNodes) return;
+
+  waitingToAppear.forEach(({ selector, onAppear }, i) => {
+    const el = document.querySelector(selector);
+    if (el) {
+      onAppear(el);
+      waitingToAppear.splice(i, 1);
+    }
+  });
+});
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: false,
+  characterData: false,
+});
+export function disconnectGlobalObserver() {
+  observer.disconnect();
+}
+
+function modifyAndWatch(
+  el: Element,
+  type: MutationType,
+  value: string
+): () => void {
+  let unapply = applyMutation(el, type, value);
+
+  let init: null | MutationObserverInit = null;
+  if (['addClass', 'removeClass'].includes(type)) {
+    init = {
+      attributes: true,
+      attributeFilter: ['className'],
+    };
+  } else if (['setAttribute'].includes(type)) {
+    const match = setAttributeRegex.exec(value);
+    if (match?.[1]) {
+      init = {
+        attributes: true,
+        attributeFilter: [match[1]],
+      };
+    }
+  } else if (['appendHTML', 'setHTML'].includes(type)) {
+    init = {
+      childList: true,
+      subtree: true,
+      attributes: false,
+      characterData: false,
+    };
+  }
+
+  let elObserver: MutationObserver;
+  if (init) {
+    const elObserver = new MutationObserver(() => {
+      const res = applyMutation(el, type, value);
+      // If the value changed, use a new unapply function to go back to the most recent external change
+      if (res) {
+        unapply = res;
+      }
+    });
+    elObserver.observe(el, init);
+  }
+
+  return () => {
+    elObserver && elObserver.disconnect();
+    unapply && unapply();
+  };
+}
+
+export default function mutate(
   selector: string,
   type: MutationType,
   value: string
 ): () => void {
-  // once we've modified a node, we want to monitor it for a change, stub. 
-  let elObserver: MutationObserver;
-  // document level observer: checks for new nodes added
-  let observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (!mutation.addedNodes) return
-      // is it here now: we could select just this one node, but this is simpler:
-      const el = document.querySelector(selector);
-      if (el) {
-        applyMutation(el, type, value);
-        elObserver = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            if(mutation.type === "attributes" && (type === "setAttribute" || type === "addClass" || type === "removeClass")) {
-              applyMutation(el, type, value);
-            } else if (type === "setHTML" || type === "appendHTML") {
-              applyMutation(el, type, value);
-            }
-          });
-        });
-        elObserver.observe(el, mutationConfig);
-      }
-    })
-  });
-  
-  // check if the selector exists:
   const el = document.querySelector(selector);
-  if (!el) {
-    // it doesn't exist, wait for it:
-    observer.observe(document.body, mutationConfig);
-  } else {
-    applyMutation(el, type, value);
-    // add mutation observer to re-apply mutations if needed
-    elObserver = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if(mutation.type === "attributes" && (type === "setAttribute" || type === "addClass" || type === "removeClass")) {
-          applyMutation(el, type, value);
-        } else if (type === "setHTML" || type === "appendHTML") {
-          applyMutation(el, type, value);
-        }
-      });
-    });
-    elObserver.observe(el, mutationConfig);
+  if (el) {
+    return modifyAndWatch(el, type, value);
   }
 
-  //console.log(selector, type, value);
-
-  return () => {
-    // TODO: revert value back to previous
-    if(unapplyFn) {
-      unapplyFn();
+  let unapply: () => void;
+  const record = {
+    selector,
+    onAppear: (el: Element) => {
+      unapply = modifyAndWatch(el, type, value);
+    },
+  };
+  unapply = () => {
+    const index = waitingToAppear.indexOf(record);
+    if (index !== -1) {
+      waitingToAppear.splice(index, 1);
     }
-    // TODO: stop event listeners and observers
-    observer.disconnect();
-    if(elObserver) elObserver.disconnect();
-    console.log('revert');
+  };
+  waitingToAppear.push(record);
+  return () => {
+    unapply();
   };
 }
