@@ -8,22 +8,37 @@ Particularly useful for A/B testing.
 
 Features:
 
-*  No dependencies
+*  No dependencies, written in Typescript
 *  Super fast and light-weight
-*  If an element doesn't exist yet, wait for it
+*  If an element doesn't exist yet, wait for it to appear
 *  If an element is updated externally (e.g. a React render), re-apply the mutation immediately
 *  Ability to revert a mutation at any time
 
 ## Basic Usage
 
 ```ts
-import {mutate} from "@growthbook/mutate";
+import mutate from "@growthbook/mutate";
 
-// css selector, mutation type, value
-mutate("h1", "setHTML", "Hello <strong>World</strong>");
+// mutate(css selector, mutation type, value)
+const revert = mutate("#greeting", "setHTML", "hello");
+
+// works even if the selector doesn't exist yet
+document.body.innerHTML += "<div id='greeting'></div>";
+
+//**** div innerHTML = "hello" at this point!
+
+// external changes are ignored and the mutation persists
+document.getElementById('greeting').innerHTML = 'something new';
+
+//**** div innerHTML = "hello" still!
+
+// Stop mutating the element
+revert();
+
+//**** div innerHTML = "something new" (the last external value)
 ```
 
-## Available Mutations
+## Available Mutation Types
 
 -  addClass
 -  removeClass
@@ -31,18 +46,15 @@ mutate("h1", "setHTML", "Hello <strong>World</strong>");
 -  appendHTML
 -  setAttribute
 
-For `setAttribute`, the "value" is in the format `{attribute}="{value}"` (e.g. `href="/about"`)
+For `setAttribute`, the "value" is in the format `{attribute}="{value}"` (e.g. `href="/about"`).
 
-## Reverting
+## How it Works
 
-The `mutate` function returns a revert callback.  Use that to revert the mutation and remove all event listeners.
+When you call `mutate`, we check to see if the selector exists in the document.  If not, we use a global MutationObserver on document.body to wait for the element to appear.  
 
-```ts
-const revert = mutate("h1", "setHTML", "Hello <strong>World</strong>");
+Once a matching element is found, we apply the change.  We then attach a separate MutationObserver, just for the element and attributes being modified.  That second MutationObserver will re-apply the change if needed.
 
-// later
-revert();
-```
+When revert is called, we undo the change and go back to the last externally set value. We also disconnect the element MutationObserver.
 
 ## Developing
 

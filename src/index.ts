@@ -18,16 +18,25 @@ const applyMutation = (
       return null;
     }
     const originalClassName = targetNode.className;
-    targetNode.className += ' ' + value;
-    return () => {
-      targetNode.className = originalClassName;
-    };
+    targetNode.className += originalClassName ? ' ' + value : value;
+    if (originalClassName) {
+      return () => {
+        targetNode.className = originalClassName;
+      };
+    } else {
+      return () => {
+        targetNode.removeAttribute('class');
+      };
+    }
   } else if (type === 'removeClass') {
     if (!targetNode.className.match(new RegExp('\\b' + value + '\\b'))) {
       return null;
     }
     const originalClassName = targetNode.className;
-    targetNode.className = targetNode.className.replace(value, '');
+    targetNode.className = targetNode.className
+      .replace(value, '')
+      .replace(/(^\s|\s$)/g, '')
+      .replace(/\s+/g, ' ');
     return () => {
       targetNode.className = originalClassName;
     };
