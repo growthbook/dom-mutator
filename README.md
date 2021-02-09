@@ -16,10 +16,12 @@ Features:
 *  If an element is updated externally (e.g. a React render), re-apply the mutation immediately
 *  Ability to revert a mutation at any time
 
+`yarn add dom-mutator` OR `npm install --save dom-mutator`.
+
 ## Basic Usage
 
 ```ts
-import mutate from "@growthbook/mutate";
+import mutate from "dom-mutator";
 
 // mutate(css selector, mutation type, value)
 const revert = mutate("#greeting", "setHTML", "hello");
@@ -58,8 +60,34 @@ Once a matching element is found, we apply the change.  We then attach a separat
 
 When revert is called, we undo the change and go back to the last externally set value. We also disconnect the element MutationObserver.
 
+## Pausing / Resuming the Global MutationObserver
+
+While the library is waiting for elements to appear, it runs `document.querySelector` every time a batch of elements is added to the DOM.
+
+This is fast enough for most cases, but if you want more control, you can pause and resume the global MutationObserver.
+
+One example use case is if you are making a ton of DOM changes that you know have nothing to do with the element you are watching. You would pause right before making the changes and resume after.
+
+```ts
+import {disconnectGlobalObserver, connectGlobalObserver} from "dom-mutator";
+
+// Pause
+disconnectGlobalObserver();
+
+// ... do a bunch of expensive DOM updates
+
+// Resume
+connectGlobalObserver();
+```
+
 ## Developing
 
 Built with [TSDX](https://github.com/formium/tsdx).
 
-We use [np](https://github.com/sindresorhus/np) to publish to npm.
+`npm start` or `yarn start` to rebuild on file change.
+
+`npm run build` or `yarn build` to bundle the package to the `dist` folder.
+
+`npm test --coverage` or `yarn test --coverage` to run the Jest test suite with coverage report.
+
+`npm run lint --fix` or `yarn lint --fix` to lint your code and autofix probelsm when possible.
