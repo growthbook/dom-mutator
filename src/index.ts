@@ -83,8 +83,11 @@ function deleteElementAttributeRecord(el: Element, attr: string) {
   delete element[attr];
 }
 
-const transformContainer = document.createElement('div');
+let transformContainer: HTMLDivElement;
 function getTransformedHTML(html: string) {
+  if (!transformContainer) {
+    transformContainer = document.createElement('div');
+  }
   transformContainer.innerHTML = html;
   return transformContainer.innerHTML;
 }
@@ -277,13 +280,20 @@ function refreshAllElementSets() {
 }
 
 // Observer for elements that don't exist in the DOM yet
-const observer = new MutationObserver(() => {
-  refreshAllElementSets();
-});
+let observer: MutationObserver;
 export function disconnectGlobalObserver() {
-  observer.disconnect();
+  observer && observer.disconnect();
 }
 export function connectGlobalObserver() {
+  /* istanbul ignore next */
+  if (typeof document === 'undefined') return;
+
+  if (!observer) {
+    observer = new MutationObserver(() => {
+      refreshAllElementSets();
+    });
+  }
+
   refreshAllElementSets();
   observer.observe(document.body, {
     childList: true,
@@ -299,11 +309,19 @@ export default function mutate(
   type: MutationType,
   value: string
 ): () => void {
+  /* istanbul ignore next */
+  if (typeof document === 'undefined') {
+    // Not in a browser
+    return () => {
+      // do nothing
+    };
+  }
+
   // Invalid mutation
   const attr = getAttribute(type, value);
   if (!attr) {
     return () => {
-      // nothing
+      // do nothing
     };
   }
 
