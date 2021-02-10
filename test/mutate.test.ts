@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import mutate, {
   disconnectGlobalObserver,
   connectGlobalObserver,
@@ -120,9 +122,6 @@ describe('mutate', () => {
     cleanup(mutate('p', 'addClass', 'test'));
     expect(el.className).toEqual('test');
 
-    cleanup(mutate('p', 'appendHTML', 'world'));
-    expect(el.innerHTML).toEqual('hello world');
-
     cleanup(mutate('p', 'removeClass', 'foo'));
     expect(el.className).toEqual('test');
 
@@ -197,5 +196,52 @@ describe('mutate', () => {
     await new Promise(res => setTimeout(res, 17));
     expect(el.innerHTML).toEqual('bar<b>foo</b>');
     revertAll();
+  });
+
+  it('handles conflicting mutations', async () => {
+    document.body.innerHTML = '<div></div>';
+    cleanup(mutate('div', 'setHTML', 'foo'));
+    const revert2 = mutate('div', 'setHTML', 'bar');
+    await new Promise(res => setTimeout(res, 17));
+    expect(document.body.innerHTML).toEqual('<div>bar</div>');
+    revert2();
+    expect(document.body.innerHTML).toEqual('<div>foo</div>');
+    revertAll();
+    expect(document.body.innerHTML).toEqual('<div></div>');
+  });
+
+  it('handles multiple mutations for the same element', () => {
+    document.body.innerHTML = '<div class="foo"></div>';
+    cleanup(mutate('div', 'addClass', 'bar'));
+    cleanup(mutate('div', 'setAttribute', 'class="baz"'));
+    cleanup(mutate('div', 'addClass', 'last'));
+
+    expect(document.body.innerHTML).toEqual('<div class="baz last"></div>');
+  });
+
+  it('supports multiple matching elements', async () => {
+    const div1 = document.createElement('div');
+    const div2 = document.createElement('div');
+
+    document.body.appendChild(div1);
+    document.body.appendChild(div2);
+
+    cleanup(mutate('div', 'addClass', 'foo'));
+    expect(div1.className).toEqual('foo');
+    expect(div2.className).toEqual('foo');
+
+    const div3 = document.createElement('div');
+    document.body.appendChild(div3);
+    await new Promise(res => setTimeout(res, 17));
+    expect(div3.className).toEqual('foo');
+
+    div2.remove();
+    await new Promise(res => setTimeout(res, 17));
+  });
+
+  it('handles empty setAttribute value', () => {
+    document.body.innerHTML = '<div title="foo"></div>';
+    cleanup(mutate('div', 'setAttribute', 'title=""'));
+    expect(document.body.innerHTML).toEqual('<div></div>');
   });
 });

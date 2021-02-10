@@ -5,8 +5,83 @@ export type MutationType =
   | 'setHTML'
   | 'setAttribute';
 
+type MutationRecord = {
+  selector: string;
+  type: MutationType;
+  value: string;
+  elements: Set<Element>;
+};
+type Mutations = { [key: string]: MutationRecord };
+type ElementAttributeRecord = {
+  externalValue: string;
+  lastValue: string;
+  observer: MutationObserver;
+  mutations: string[];
+};
+type ElementAttributes = {
+  [key: string]: ElementAttributeRecord;
+};
+type Elements = Map<Element, ElementAttributes>;
+
+const mutations: Mutations = {};
+const elements: Elements = new Map();
+let mutationIdCounter = 1;
+
 // attr="value" format
 const setAttributeRegex = /^([a-zA-Z:_][a-zA-Z0-9:_.-]*)\s*=\s*"([^"]*)"/;
+
+function getObserverInit(attr: string): MutationObserverInit {
+  if (attr === 'html') {
+    return {
+      childList: true,
+      subtree: true,
+      attributes: false,
+      characterData: false,
+    };
+  }
+  return {
+    childList: false,
+    subtree: false,
+    attributes: true,
+    attributeFilter: [attr],
+  };
+}
+
+function getElementAttributeRecord(
+  el: Element,
+  attr: string
+): ElementAttributeRecord {
+  let element = elements.get(el);
+  if (!element) {
+    element = {};
+    elements.set(el, element);
+  }
+
+  if (!element[attr]) {
+    const elAttr: ElementAttributeRecord = {
+      externalValue: getCurrentValue(el, attr),
+      lastValue: '',
+      observer: new MutationObserver(() => {
+        const currentVal = getCurrentValue(el, attr);
+        if (currentVal === elAttr.lastValue) return;
+        elAttr.externalValue = currentVal;
+        applyMutations(el, attr);
+      }),
+      mutations: [],
+    };
+    element[attr] = elAttr;
+    elAttr.observer.observe(el, getObserverInit(attr));
+  }
+
+  return element[attr];
+}
+function deleteElementAttributeRecord(el: Element, attr: string) {
+  const element = elements.get(el);
+  /* istanbul ignore next */
+  if (!element) return;
+  element[attr] && element[attr].observer.disconnect();
+  delete element[attr];
+}
 
 const transformContainer = document.createElement('div');
 function getTransformedHTML(html: string) {
@@ -14,116 +89,202 @@ function getTransformedHTML(html: string) {
   return transformContainer.innerHTML;
 }
 
-const applyMutation = (
-  targetNode: Element,
-  type: MutationType,
-  value: string
-): null | (() => void) => {
-  if (type === 'addClass') {
-    if (targetNode.className.match(new RegExp('\\b' + value + '\\b'))) {
-      return null;
-    }
-    const originalClassName = targetNode.className;
-    targetNode.className += originalClassName ? ' ' + value : value;
-    if (originalClassName) {
-      return () => {
-        targetNode.className = originalClassName;
-      };
-    } else {
-      return () => {
-        targetNode.removeAttribute('class');
-      };
-    }
-  } else if (type === 'removeClass') {
-    if (!targetNode.className.match(new RegExp('\\b' + value + '\\b'))) {
-      return null;
-    }
-    const originalClassName = targetNode.className;
-    targetNode.className = targetNode.className
-      .replace(value, '')
-      .replace(/(^\s|\s$)/g, '')
-      .replace(/\s+/g, ' ');
-    return () => {
-      targetNode.className = originalClassName;
-    };
-  } else if (type === 'appendHTML') {
-    value = getTransformedHTML(value);
-    const originalHTML = targetNode.innerHTML;
-    if (originalHTML.substr(-1 * value.length) === value) {
-      return null;
-    }
-    targetNode.innerHTML += value;
-    return () => {
-      targetNode.innerHTML = originalHTML;
-    };
-  } else if (type === 'setHTML') {
-    value = getTransformedHTML(value);
-    const originalHTML = targetNode.innerHTML;
-    if (originalHTML === value) {
-      return null;
-    }
-    targetNode.innerHTML = value;
-    return () => {
-      targetNode.innerHTML = originalHTML;
-    };
-  } else if (type === 'setAttribute') {
-    let match = setAttributeRegex.exec(value);
-    if (match?.length === 3) {
-      const key = match[1];
-      const val = match[2];
-      const originalValue = targetNode.getAttribute(key);
-      if (originalValue === val || (!originalValue && !val)) {
-        return null;
+function applyMutation(mutation: MutationRecord, value: string): string {
+  if (mutation.type === 'addClass') {
+    const existing = value.split(' ');
+    const classes = mutation.value.split(' ');
+    classes.forEach(c => {
+      if (!existing.includes(c)) {
+        existing.push(c);
       }
+    });
+    return existing.filter(Boolean).join(' ');
+  } else if (mutation.type === 'removeClass') {
+    const existing = value.split(' ');
+    const classes = mutation.value.split(' ');
+    return existing.filter(c => !classes.includes(c)).join(' ');
+  } else if (mutation.type === 'setHTML') {
+    return mutation.value;
+  } else if (mutation.type === 'appendHTML') {
+    return value + mutation.value;
+  } else if (mutation.type === 'setAttribute') {
+    /* istanbul ignore next */
+    const match = setAttributeRegex.exec(mutation.value);
+    /* istanbul ignore next */
+    return match?.[2] || '';
+  }
 
-      targetNode.setAttribute(key, val);
-      if (originalValue) {
-        return () => {
-          targetNode.setAttribute(key, originalValue!);
-        };
-      } else {
-        return () => {
-          targetNode.removeAttribute(key);
-        };
+  /* istanbul ignore next */
+  return value;
+}
+
+function getCurrentValue(el: Element, attr: string) {
+  if (attr === 'html') {
+    return el.innerHTML;
+  } else if (attr === 'className') {
+    return el.className;
+  } else {
+    return el.getAttribute(attr) || '';
+  }
+}
+function setValue(el: Element, attr: string, value: string) {
+  if (attr === 'html') {
+    el.innerHTML = value;
+  } else if (attr === 'className') {
+    if (value) {
+      el.className = value;
+    } else {
+      el.removeAttribute('class');
+    }
+  } else {
+    if (value) {
+      el.setAttribute(attr, value);
+    } else {
+      el.removeAttribute(attr);
+    }
+  }
+}
+
+function applyMutations(el: Element, attr: string) {
+  const elAttr = getElementAttributeRecord(el, attr);
+  let val = elAttr.externalValue;
+  elAttr.mutations.forEach(id => {
+    const mutation = mutations[id];
+    /* istanbul ignore next */
+    if (!mutation) return;
+    val = applyMutation(mutation, val);
+  });
+
+  const currentVal = getCurrentValue(el, attr);
+  if (val !== currentVal) {
+    elAttr.lastValue = val;
+    setValue(el, attr, val);
+  }
+}
+
+function getAttribute(type: MutationType, value: string): string {
+  if (['addClass', 'removeClass'].includes(type)) {
+    return 'className';
+  } else if (['appendHTML', 'setHTML'].includes(type)) {
+    return 'html';
+  } else if (type === 'setAttribute') {
+    const match = setAttributeRegex.exec(value);
+    if (match?.[1]) {
+      const attr = match[1];
+      if (attr === 'class' || attr === 'classname') {
+        return 'className';
       }
+      return attr;
     }
   }
 
-  return null;
-};
+  return '';
+}
 
-// Observer for elements that don't exist in the DOM yet
-const waitingToAppear: {
-  selector: string;
-  onAppear: (el: Element) => void;
-}[] = [];
-function processWaitingToAppear() {
-  waitingToAppear.forEach(({ selector, onAppear }, i) => {
-    const el = document.querySelector(selector);
-    if (el) {
-      onAppear(el);
-      waitingToAppear.splice(i, 1);
+function startMutating(id: string, el: Element) {
+  const mutation = mutations[id];
+  /* istanbul ignore next */
+  if (!mutation) return;
+
+  mutation.elements.add(el);
+  const attr = getAttribute(mutation.type, mutation.value);
+  const elAttr = getElementAttributeRecord(el, attr);
+  elAttr.mutations.push(id);
+  applyMutations(el, attr);
+}
+
+function stopMutating(id: string, el: Element) {
+  const mutation = mutations[id];
+  /* istanbul ignore next */
+  if (!mutation) return;
+  mutation.elements.delete(el);
+  const attr = getAttribute(mutation.type, mutation.value);
+  const elAttr = getElementAttributeRecord(el, attr);
+  const index = elAttr.mutations.indexOf(id);
+  /* istanbul ignore next */
+  if (index !== -1) {
+    elAttr.mutations.splice(index, 1);
+  }
+  applyMutations(el, attr);
+
+  // No more mutations for the element, remove the observer
+  if (!elAttr.mutations.length) {
+    deleteElementAttributeRecord(el, attr);
+  }
+}
+
+function refreshElementsSet(id: string) {
+  const mutation = mutations[id];
+  /* istanbul ignore next */
+  if (!mutation) return;
+
+  const existingEls = new Set(mutation.elements);
+
+  const newElements: Set<Element> = new Set();
+  const nodes = document.body.querySelectorAll(mutation.selector);
+  nodes.forEach(el => {
+    newElements.add(el);
+    if (!existingEls.has(el)) {
+      startMutating(id, el);
+    }
+  });
+
+  existingEls.forEach(el => {
+    if (!newElements.has(el)) {
+      stopMutating(id, el);
     }
   });
 }
 
-const observer = new MutationObserver(mutations => {
-  if (!waitingToAppear.length) return;
+function newMutation(
+  selector: string,
+  type: MutationType,
+  value: string
+): string {
+  // Fix invalid HTML values
+  if (type === 'appendHTML' || type === 'setHTML') {
+    value = getTransformedHTML(value);
+  }
 
-  // Only run if new nodes have been added
-  let hasAddedNodes = false;
-  mutations.forEach(mutation => {
-    if (mutation.addedNodes.length) hasAddedNodes = true;
+  const id = '' + mutationIdCounter++;
+  mutations[id] = {
+    selector,
+    type,
+    value,
+    elements: new Set(),
+  };
+  refreshElementsSet(id);
+  return id;
+}
+
+function revertMutation(id: string) {
+  const mutation = mutations[id];
+  /* istanbul ignore next */
+  if (!mutation) return;
+
+  const els = new Set(mutation.elements);
+  els.forEach(el => {
+    stopMutating(id, el);
   });
-  if (!hasAddedNodes) return;
+  mutations[id].elements.clear();
+  delete mutations[id];
+}
 
-  processWaitingToAppear();
+function refreshAllElementSets() {
+  Object.keys(mutations).forEach(key => {
+    refreshElementsSet(key);
+  });
+}
+
+// Observer for elements that don't exist in the DOM yet
+const observer = new MutationObserver(() => {
+  refreshAllElementSets();
 });
 export function disconnectGlobalObserver() {
   observer.disconnect();
 }
 export function connectGlobalObserver() {
-  processWaitingToAppear();
+  refreshAllElementSets();
   observer.observe(document.body, {
     childList: true,
     subtree: true,
@@ -133,79 +294,22 @@ export function connectGlobalObserver() {
 }
 connectGlobalObserver();
 
-function modifyAndWatch(
-  el: Element,
-  type: MutationType,
-  value: string
-): () => void {
-  let unapply = applyMutation(el, type, value);
-
-  let init: null | MutationObserverInit = null;
-  if (['addClass', 'removeClass'].includes(type)) {
-    init = {
-      attributes: true,
-      attributeFilter: ['className'],
-    };
-  } else if (['setAttribute'].includes(type)) {
-    const match = setAttributeRegex.exec(value);
-    if (match?.[1]) {
-      init = {
-        attributes: true,
-        attributeFilter: [match[1]],
-      };
-    }
-  } else if (['appendHTML', 'setHTML'].includes(type)) {
-    init = {
-      childList: true,
-      subtree: true,
-      attributes: false,
-      characterData: false,
-    };
-  }
-
-  let elObserver: MutationObserver;
-  if (init) {
-    elObserver = new MutationObserver(() => {
-      const res = applyMutation(el, type, value);
-      // If the value changed, use a new unapply function to go back to the most recent external change
-      if (res) {
-        unapply = res;
-      }
-    });
-    elObserver.observe(el, init);
-  }
-
-  return () => {
-    elObserver && elObserver.disconnect();
-    unapply && unapply();
-  };
-}
-
 export default function mutate(
   selector: string,
   type: MutationType,
   value: string
 ): () => void {
-  const el = document.querySelector(selector);
-  if (el) {
-    return modifyAndWatch(el, type, value);
+  // Invalid mutation
+  const attr = getAttribute(type, value);
+  if (!attr) {
+    return () => {
+      // nothing
+    };
   }
 
-  let unapply: () => void;
-  const record = {
-    selector,
-    onAppear: (el: Element) => {
-      unapply = modifyAndWatch(el, type, value);
-    },
-  };
-  unapply = () => {
-    const index = waitingToAppear.indexOf(record);
-    if (index !== -1) {
-      waitingToAppear.splice(index, 1);
-    }
-  };
-  waitingToAppear.push(record);
+  const id = newMutation(selector, type, value);
+
   return () => {
-    unapply();
+    revertMutation(id);
   };
 }

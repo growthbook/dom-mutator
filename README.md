@@ -11,7 +11,7 @@ Particularly useful for A/B testing.
 Features:
 
 *  No dependencies, written in Typescript, 100% test coverage
-*  Light-weight (< 1Kb) and super fast (using MutationObservers)
+*  Super fast and light-weight (1Kb gzipped)
 *  If an element doesn't exist yet, wait for it to appear
 *  If an element is updated externally (e.g. a React render), re-apply the mutation immediately
 *  Ability to revert a mutation at any time
@@ -54,11 +54,11 @@ For `setAttribute`, the "value" is in the format `{attribute}="{value}"` (e.g. `
 
 ## How it Works
 
-When you call `mutate`, we check to see if the selector exists in the document.  If not, we use a global MutationObserver on document.body to wait for the element to appear.  
+When you call `mutate`, we start watching the document for elements matching the selector to appear. We do this with a single shared MutationObserver on the body.
 
-Once a matching element is found, we apply the change.  We then attach a separate MutationObserver, just for the element and attributes being modified.  That second MutationObserver will re-apply the change if needed.
+When a matching element is found, we attach a separate MutationObserver filtered to the exact attribute being mutated.  If an external change happens (e.g. from a React render), we re-apply your mutation on top of the new baseline value.
 
-When revert is called, we undo the change and go back to the last externally set value. We also disconnect the element MutationObserver.
+When revert is called, we undo the change and go back to the last externally set value. We also disconnect the element MutationObserver to save resources.
 
 ## Pausing / Resuming the Global MutationObserver
 
@@ -66,7 +66,7 @@ While the library is waiting for elements to appear, it runs `document.querySele
 
 This is fast enough for most cases, but if you want more control, you can pause and resume the global MutationObserver.
 
-One example use case is if you are making a ton of DOM changes that you know have nothing to do with the element you are watching. You would pause right before making the changes and resume after.
+One example use case is if you are making a ton of DOM changes that you know have nothing to do with the elements you are watching. You would pause right before making the changes and resume after.
 
 ```ts
 import {disconnectGlobalObserver, connectGlobalObserver} from "dom-mutator";
