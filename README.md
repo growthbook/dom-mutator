@@ -2,11 +2,9 @@
 
 ![Build Status](https://github.com/growthbook/dom-mutator/workflows/CI/badge.svg)
 
-**Development In Progress - DO NOT USE!!!**
-
 Apply persistent DOM mutations on top of anything (static HTML, React, Vue, etc.)
 
-Particularly useful for A/B testing.
+It's like using jQuery `element.innerHTML = "My New Title"`, but it persists your change even if something external resets the HTML. Plus, it will automatically apply to any new matching elements added to the page later.
 
 Features:
 
@@ -14,7 +12,7 @@ Features:
 *  Super fast and light-weight (1Kb gzipped)
 *  If an element doesn't exist yet, wait for it to appear
 *  If an element is updated externally (e.g. a React render), re-apply the mutation immediately
-*  Ability to revert a mutation at any time
+*  Ability to remove a mutation at any time and go back to the original value
 
 `yarn add dom-mutator` OR `npm install --save dom-mutator`.
 
@@ -24,7 +22,7 @@ Features:
 import mutate from "dom-mutator";
 
 // mutate(css selector, mutation type, value)
-const revert = mutate("#greeting", "setHTML", "hello");
+const stop = mutate("#greeting", "setHTML", "hello");
 
 // works even if the selector doesn't exist yet
 document.body.innerHTML += "<div id='greeting'></div>";
@@ -37,7 +35,7 @@ document.getElementById('greeting').innerHTML = 'something new';
 //**** div innerHTML = "hello" still!
 
 // Stop mutating the element
-revert();
+stop();
 
 //**** div innerHTML = "something new" (the last external value)
 ```
@@ -58,11 +56,11 @@ When you call `mutate`, we start watching the document for elements matching the
 
 When a matching element is found, we attach a separate MutationObserver filtered to the exact attribute being mutated.  If an external change happens (e.g. from a React render), we re-apply your mutation on top of the new baseline value.
 
-When revert is called, we undo the change and go back to the last externally set value. We also disconnect the element MutationObserver to save resources.
+When `stop` is called, we undo the change and go back to the last externally set value. We also disconnect the element's MutationObserver to save resources.
 
 ## Pausing / Resuming the Global MutationObserver
 
-While the library is waiting for elements to appear, it runs `document.querySelector` every time a batch of elements is added to the DOM.
+While the library is waiting for elements to appear, it runs `document.querySelectorAll` every time a batch of elements is added to the DOM.
 
 This is fast enough for most cases, but if you want more control, you can pause and resume the global MutationObserver.
 
@@ -90,4 +88,4 @@ Built with [TSDX](https://github.com/formium/tsdx).
 
 `npm test --coverage` or `yarn test --coverage` to run the Jest test suite with coverage report.
 
-`npm run lint --fix` or `yarn lint --fix` to lint your code and autofix probelsm when possible.
+`npm run lint --fix` or `yarn lint --fix` to lint your code and autofix problems when possible.
