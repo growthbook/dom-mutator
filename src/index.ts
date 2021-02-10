@@ -35,8 +35,8 @@ function getObserverInit(attr: string): MutationObserverInit {
     return {
       childList: true,
       subtree: true,
-      attributes: false,
-      characterData: false,
+      attributes: true,
+      characterData: true,
     };
   }
   return {

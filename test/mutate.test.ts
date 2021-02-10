@@ -244,4 +244,25 @@ describe('mutate', () => {
     cleanup(mutate('div', 'setAttribute', 'title=""'));
     expect(document.body.innerHTML).toEqual('<div></div>');
   });
+
+  it('picks up characterData changes when mutating html', async () => {
+    const div = document.createElement('div');
+    const text = document.createTextNode('foo');
+    div.append(text);
+    document.body.append(div);
+
+    cleanup(mutate('div', 'setHTML', 'bar'));
+    text.nodeValue = 'baz';
+    await new Promise(res => setTimeout(res, 17));
+    expect(div.innerHTML).toEqual('bar');
+  });
+
+  it('picks up on child attribute changes when mutating html', async () => {
+    document.body.innerHTML = '<div>foo</div>';
+    cleanup(mutate('div', 'setHTML', '<p>bar</p>'));
+
+    document.querySelector('p').title = 'foo';
+    await new Promise(res => setTimeout(res, 17));
+    expect(document.body.innerHTML).toEqual('<div><p>bar</p></div>');
+  });
 });
