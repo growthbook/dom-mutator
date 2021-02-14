@@ -15,6 +15,7 @@ type Mutations = { [key: string]: MutationRecord };
 type ElementAttributeRecord = {
   externalValue: string;
   lastValue: string;
+  dirty?: boolean;
   observer: MutationObserver;
   mutations: string[];
 };
@@ -148,6 +149,31 @@ function setValue(el: Element, attr: string, value: string) {
   }
 }
 
+let raf = false;
+function setValues() {
+  raf = false;
+  elements.forEach((attrs, el) => {
+    Object.keys(attrs).forEach(attr => {
+      const elAttr = attrs[attr];
+      if (elAttr.dirty) {
+        elAttr.dirty = false;
+        setValue(el, attr, elAttr.lastValue);
+
+        // No more mutations for the element, remove the observer
+        if (!elAttr.mutations.length) {
+          deleteElementAttributeRecord(el, attr);
+        }
+      }
+    });
+  });
+}
+function queueDOMUpdates() {
+  if (!raf) {
+    raf = true;
+    requestAnimationFrame(setValues);
+  }
+}
+
 function applyMutations(el: Element, attr: string) {
   const elAttr = getElementAttributeRecord(el, attr);
   let val = elAttr.externalValue;
@@ -160,8 +186,9 @@ function applyMutations(el: Element, attr: string) {
 
   const currentVal = getCurrentValue(el, attr);
   if (val !== currentVal) {
+    elAttr.dirty = true;
     elAttr.lastValue = val;
-    setValue(el, attr, val);
+    queueDOMUpdates();
   }
 }
 
@@ -209,11 +236,6 @@ function stopMutating(id: string, el: Element) {
     elAttr.mutations.splice(index, 1);
   }
   applyMutations(el, attr);
-
-  // No more mutations for the element, remove the observer
-  if (!elAttr.mutations.length) {
-    deleteElementAttributeRecord(el, attr);
-  }
 }
 
 function refreshElementsSet(id: string) {
