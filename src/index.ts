@@ -13,8 +13,8 @@ type MutationRecord = {
 };
 type Mutations = { [key: string]: MutationRecord };
 type ElementAttributeRecord = {
-  externalValue: string;
-  lastValue: string;
+  originalValue: string;
+  virtualValue: string;
   dirty?: boolean;
   observer: MutationObserver;
   mutations: string[];
@@ -59,13 +59,14 @@ function getElementAttributeRecord(
   }
 
   if (!element[attr]) {
+    const currentValue = getCurrentValue(el, attr);
     const elAttr: ElementAttributeRecord = {
-      externalValue: getCurrentValue(el, attr),
-      lastValue: '',
+      originalValue: currentValue,
+      virtualValue: currentValue,
       observer: new MutationObserver(() => {
-        const currentVal = getCurrentValue(el, attr);
-        if (currentVal === elAttr.lastValue) return;
-        elAttr.externalValue = currentVal;
+        const currentValue = getCurrentValue(el, attr);
+        if (currentValue === elAttr.virtualValue) return;
+        elAttr.originalValue = currentValue;
         applyMutations(el, attr);
       }),
       mutations: [],
@@ -157,12 +158,12 @@ function setValues() {
       const elAttr = attrs[attr];
       if (elAttr.dirty) {
         elAttr.dirty = false;
-        setValue(el, attr, elAttr.lastValue);
-
+        const value = elAttr.virtualValue;
         // No more mutations for the element, remove the observer
         if (!elAttr.mutations.length) {
           deleteElementAttributeRecord(el, attr);
         }
+        setValue(el, attr, value);
       }
     });
   });
@@ -176,18 +177,17 @@ function queueDOMUpdates() {
 
 function applyMutations(el: Element, attr: string) {
   const elAttr = getElementAttributeRecord(el, attr);
-  let val = elAttr.externalValue;
+  let val = elAttr.originalValue;
   elAttr.mutations.forEach(id => {
     const mutation = mutations[id];
     /* istanbul ignore next */
     if (!mutation) return;
     val = applyMutation(mutation, val);
   });
-
+  elAttr.virtualValue = val;
   const currentVal = getCurrentValue(el, attr);
-  if (val !== currentVal) {
+  if (elAttr.virtualValue !== currentVal) {
     elAttr.dirty = true;
-    elAttr.lastValue = val;
     queueDOMUpdates();
   }
 }

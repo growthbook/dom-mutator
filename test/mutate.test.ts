@@ -297,4 +297,15 @@ describe('mutate', () => {
     await sleep();
     expect(document.body.innerHTML).toEqual('<div><p>bar</p></div>');
   });
+
+  it('can revert and mutate the same element quickly', async () => {
+    document.body.innerHTML = '<div>foo</div>';
+    const revert = mutate('div', 'addClass', 'hello');
+    await sleep();
+    expect(document.body.innerHTML).toEqual('<div class="hello">foo</div>');
+    revert();
+    cleanup(mutate('div', 'addClass', 'hello'));
+    await sleep();
+    expect(document.body.innerHTML).toEqual('<div class="hello">foo</div>');
+  });
 });
