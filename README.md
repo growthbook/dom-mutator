@@ -1,20 +1,23 @@
 # DOM Mutator
 
-![Build Status](https://github.com/growthbook/dom-mutator/workflows/CI/badge.svg)
-
 Apply persistent DOM mutations on top of anything (static HTML, React, Vue, etc.)
 
-It's like using jQuery `element.innerHTML = "My New Title"`, but it persists your change even if something external resets the HTML. Plus, it will automatically apply to any new matching elements added to the page later.
+```ts
+import mutate from "dom-mutator";
+mutate("h1", "setHTML", "Hello World");
+```
 
 Features:
 
 *  No dependencies, written in Typescript, 100% test coverage
 *  Super fast and light-weight (1Kb gzipped)
-*  If an element doesn't exist yet, wait for it to appear
-*  If an element is updated externally (e.g. a React render), re-apply the mutation immediately
+*  Mutations apply to all current and future elements that match the selector
+*  Mutations persist even if the underlying element is updated externally (e.g. by a React render)
 *  Ability to remove a mutation at any time and go back to the original value
 
 `yarn add dom-mutator` OR `npm install --save dom-mutator`.
+
+![Build Status](https://github.com/growthbook/dom-mutator/workflows/CI/badge.svg)
 
 ## Basic Usage
 
@@ -60,9 +63,9 @@ When `stop` is called, we undo the change and go back to the last externally set
 
 ## Pausing / Resuming the Global MutationObserver
 
-While the library is waiting for elements to appear, it runs `document.querySelectorAll` every time a batch of elements is added to the DOM.
+While the library is waiting for elements to appear, it runs `document.querySelectorAll` every time a batch of elements is added or removed from the DOM.
 
-This is fast enough for most cases, but if you want more control, you can pause and resume the global MutationObserver.
+This is performant enough in most cases, but if you want more control, you can pause and resume the global MutationObserver on demand.
 
 One example use case is if you are making a ton of DOM changes that you know have nothing to do with the elements you are watching. You would pause right before making the changes and resume after.
 
