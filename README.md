@@ -4,16 +4,21 @@ Apply persistent DOM mutations on top of anything (static HTML, React, Vue, etc.
 
 ```ts
 import mutate from "dom-mutator";
-mutate("h1", "setHTML", "Hello World");
+
+mutate.html("h1", html => html.toUpperCase());
+
+mutate.classes("div.greeting", classes => classes.add("new-class"));
+
+mutate.attr(".get-started", "title", (oldVal) => "This is my new title attribute");
 ```
 
 Features:
 
 *  No dependencies, written in Typescript, 100% test coverage
 *  Super fast and light-weight (1Kb gzipped)
-*  Mutations apply to all current and future elements that match the selector
+*  Mutations will apply to elements that match the selector (even ones that don't exist yet)
 *  Mutations persist even if the underlying element is updated externally (e.g. by a React render)
-*  Ability to remove a mutation at any time and go back to the original value
+*  Easily remove a mutation at any time
 
 `yarn add dom-mutator` OR `npm install --save dom-mutator`.
 
@@ -21,37 +26,46 @@ Features:
 
 ## Basic Usage
 
+innerHTML example:
+
 ```ts
 import mutate from "dom-mutator";
 
-// mutate(css selector, mutation type, value)
-const stop = mutate("#greeting", "setHTML", "hello");
+// Mutate the innerHTML of an element
+const stop = mutate.html("#greeting", html => html + ' world');
 
 // works even if the selector doesn't exist yet
-document.body.innerHTML += "<div id='greeting'></div>";
+document.body.innerHTML += "<div id='greeting'>hello</div>";
 
-//**** div innerHTML = "hello" at this point!
+//**** div innerHTML = "hello world" at this point!
 
-// external changes are ignored and the mutation persists
-document.getElementById('greeting').innerHTML = 'something new';
+// mutation persists even if there is an external change
+document.getElementById('greeting').innerHTML = 'hola';
 
-//**** div innerHTML = "hello" still!
+//**** div innerHTML = "hola world"
 
 // Stop mutating the element
 stop();
 
-//**** div innerHTML = "something new" (the last external value)
+//**** div innerHTML = "hola" (the last externally set value)
 ```
 
 ## Available Mutation Types
 
--  addClass
--  removeClass
--  setHTML
--  appendHTML
--  setAttribute
+The `mutate` object has a few different methods you can call:
 
-For `setAttribute`, the "value" is in the format `{attribute}="{value}"` (e.g. `href="/about"`).
+-  html
+-  classList
+-  attr
+
+
+```ts
+mutate.html("h1", html => html.toUpperCase());
+
+mutate.classList("div.greeting", classes => classes.add("new-class"));
+
+mutate.attr(".get-started", "title", oldVal => "This is my new title attribute");
+```
 
 ## How it Works
 
