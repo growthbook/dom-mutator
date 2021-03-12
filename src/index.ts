@@ -360,10 +360,7 @@ function html(selector: string, mutate: (value: string) => string) {
   });
 }
 
-function classes(
-  selector: string,
-  mutate: (classes: Set<string>) => void
-) {
+function classes(selector: string, mutate: (classes: Set<string>) => void) {
   return newMutationRecord({
     kind: 'class',
     elements: new Set(),
