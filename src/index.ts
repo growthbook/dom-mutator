@@ -403,8 +403,53 @@ function attribute(
   });
 }
 
+function declarative({
+  selector,
+  action,
+  value,
+  attribute: attr,
+}: DeclarativeMutation): MutationController {
+  if (attr === 'html') {
+    if (action === 'append') {
+      return html(selector, val => val + value);
+    } else if (action === 'set') {
+      return html(selector, () => value);
+    }
+  } else if (attr === 'class') {
+    if (action === 'append') {
+      return classes(selector, val => val.add(value));
+    } else if (action === 'remove') {
+      return classes(selector, val => val.delete(value));
+    } else if (action === 'set') {
+      return classes(selector, val => {
+        val.clear();
+        val.add(value);
+      });
+    }
+  } else {
+    if (action === 'append') {
+      return attribute(selector, attr, val => val + value);
+    } else if (action === 'set') {
+      return attribute(selector, attr, () => value);
+    }
+  }
+  return nullController;
+}
+
+export type MutationController = {
+  revert: () => void;
+};
+
+export type DeclarativeMutation = {
+  selector: string;
+  attribute: string;
+  action: 'append' | 'set' | 'remove';
+  value: string;
+};
+
 export default {
   html,
   classes,
   attribute,
+  declarative,
 };

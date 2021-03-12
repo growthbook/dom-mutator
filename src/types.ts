@@ -42,6 +42,3 @@ interface ElementRecord {
     [key: string]: ElementAttributeRecord<AttributeMutationRecord>;
   };
 }
-type MutationController = {
-  revert: () => void;
-};

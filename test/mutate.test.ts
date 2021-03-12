@@ -1,6 +1,8 @@
 import mutate, {
   disconnectGlobalObserver,
   connectGlobalObserver,
+  DeclarativeMutation,
+  MutationController,
 } from '../src';
 
 function sleep(ms = 20) {
@@ -8,7 +10,7 @@ function sleep(ms = 20) {
 }
 
 let _cleanup: (() => void)[] = [];
-function cleanup(controller: { revert: () => void }) {
+function cleanup(controller: MutationController) {
   _cleanup.push(controller.revert);
 }
 function revertAll() {
@@ -303,5 +305,64 @@ describe('mutate', () => {
     cleanup(mutate.classes('div', c => c.add('hello')));
     await sleep();
     expect(document.body.innerHTML).toEqual('<div class="hello">foo</div>');
+  });
+
+  it('can do declarative mutations', async () => {
+    const initial = '<h1>title</h1><p class="text green">wor</p>';
+    document.body.innerHTML = initial;
+
+    const mutations: DeclarativeMutation[] = [
+      {
+        selector: 'h1',
+        action: 'set',
+        attribute: 'html',
+        value: 'hello',
+      },
+      {
+        selector: 'h1',
+        action: 'append',
+        attribute: 'class',
+        value: 'title',
+      },
+      {
+        selector: '.text',
+        action: 'remove',
+        attribute: 'class',
+        value: 'green',
+      },
+      {
+        selector: '.text',
+        action: 'append',
+        attribute: 'html',
+        value: 'ld!',
+      },
+      {
+        selector: 'h1.title',
+        action: 'set',
+        attribute: 'title',
+        value: 'title',
+      },
+      {
+        selector: 'h1',
+        action: 'append',
+        attribute: 'class',
+        value: 'another',
+      },
+    ];
+
+    mutations.forEach(m => {
+      cleanup(mutate.declarative(m));
+    });
+    // Need to wait for 2 request animation frames since some of the mutations depend on previous ones
+    await sleep();
+    await sleep();
+
+    expect(document.body.innerHTML).toEqual(
+      '<h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
+    );
+
+    revertAll();
+    await sleep();
+    expect(document.body.innerHTML).toEqual(initial);
   });
 });

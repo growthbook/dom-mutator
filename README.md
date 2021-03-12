@@ -67,6 +67,21 @@ mutate.classList("div.greeting", classes => classes.add("new-class"));
 mutate.attr(".get-started", "title", oldVal => "This is my new title attribute");
 ```
 
+### Declarative Mutations
+
+If you don't need the full flexibility required by callback functions or you need to serialize the list of mutations in JSON, you can use the `declarative` method:
+
+```ts
+mutate.declarative({
+  selector: "h1",
+  action: "set",
+  attribute: "html",
+  value: "hello world"
+});
+```
+
+There are 3 supported "actions": `append`, `set`, and `remove`.  The `remove` action can only be used with the `class` attribute.
+
 ## How it Works
 
 When you call `mutate`, we start watching the document for elements matching the selector to appear. We do this with a single shared MutationObserver on the body.
