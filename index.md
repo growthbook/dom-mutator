@@ -51,7 +51,32 @@ const mutation = mutate.html(".demo", html => html.toUpperCase());
 mutation.revert();
 ```
 
+In addition to `html`, you can also mutate classes and attributes:
 
+```js
+import mutate from "dom-mutator";
+
+mutate.classes("div.greeting", classes => classes.add("new-class"));
+
+mutate.attr(".get-started", "title", (oldVal) => "This is my new title attribute");
+```
+
+And there's even a declarative option if you don't want to use callbacks:
+
+```js
+import mutate from "dom-mutator";
+
+mutate.declarative({
+  selector: "h1",
+  action: "set",
+  attribute: "html",
+  value: "hello world"
+});
+```
+
+`attribute` can be "html" or any valid html attribute (title, class, href, etc.).
+
+`action` can be "set" or "append".  If the attribute is "class", there is an additional "remove" action you can use.
 
 <script type="module">
 import mutate from "https://unpkg.com/dom-mutator@0.3.1/dist/dom-mutator.esm.js";
