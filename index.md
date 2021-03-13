@@ -64,8 +64,10 @@ window.setInterval(() => {
     return;
   }
 
-  els.forEach(el => {
-    el.innerHTML = String.fromCharCode(el.innerHTML.charCodeAt(0)+1);
+  els.forEach((el,i) => {
+    el.innerHTML = String.fromCharCode(
+      Math.floor(Math.random()*26+97)
+    );
   });
 
   const div = document.createElement("div");
