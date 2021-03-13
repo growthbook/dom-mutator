@@ -65,7 +65,7 @@ window.setInterval(() => {
   }
 
   els.forEach(el => {
-    el.innerHTML = String.charCodeFrom(el.innerHTML.charCodeAt(0)+1);
+    el.innerHTML = String.fromCharCode(el.innerHTML.charCodeAt(0)+1);
   });
 
   const div = document.createElement("div");
