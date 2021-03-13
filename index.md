@@ -1,4 +1,10 @@
-For those times you need to apply DOM changes on top of HTML you don't control.  The underlying site may lazy load elements, constantly re-render with React, or do other weird stuff.  **dom-mutator** handles all of that for you.
+For those times you need to apply persistent DOM changes on top of HTML you don't control.
+
+*  No dependencies, written in Typescript, 100% test coverage
+*  Super fast and light-weight (1Kb gzipped)
+*  Persists mutations even if the underlying element is updated externally (e.g. by a React render)
+*  Picks up new matching elements that are added to the DOM
+*  Easily remove a mutation at any time
 
 ## Demo
 
@@ -14,7 +20,7 @@ For those times you need to apply DOM changes on top of HTML you don't control. 
 .demo {
     width: 50px;
     height: 50px;
-    background: #129462;
+    background: #159957;
     border-radius: 5px;
     font-weight: bold;
     color: #fff;
@@ -25,21 +31,21 @@ For those times you need to apply DOM changes on top of HTML you don't control. 
     margin-right: 10px;
 }
 .apply-area {
-  margin-bottom: 30px;
+  margin-bottom: 10px;
+}
+#uppercase, #revert {
+    padding: 7px 20px;
+    color: #fff;
+    border: 0;
+    border-radius: 5px;
+}
+#uppercase {
+    background: #15678a;
+}
+#revert {
+  background: #f36868;
 }
 </style>
-
-<p>Works even when new elements are created or the original value changes!</p>
-<div class="demo-holder">
-  <div class="demo">a</div>
-</div>
-
-<div class="apply-area">
-  <h4>Apply Mutation</h4>
-  <button id='uppercase'>Start</button>
-  <button id='revert'>Stop</button>
-</div>
-
 
 ```js
 import mutate from "dom-mutator"
@@ -51,10 +57,22 @@ const mutation = mutate.html(".demo", html => html.toUpperCase());
 mutation.revert();
 ```
 
-In addition to `html`, you can also mutate classes and attributes:
+<div class="apply-area">
+  <button id='uppercase'>Start Mutating</button>
+  <button id='revert'>Stop Mutating</button>
+</div>
+<div class="demo-holder">
+  <div class="demo">a</div>
+</div>
+
+## Usage
+
+`yarn add dom-mutator` OR `npm install --save dom-mutator`.
 
 ```js
 import mutate from "dom-mutator";
+
+mutate.html(".demo", html => html.toUpperCase());
 
 mutate.classes("div.greeting", classes => classes.add("new-class"));
 
@@ -77,6 +95,8 @@ mutate.declarative({
 `attribute` can be "html" or any valid html attribute (title, class, href, etc.).
 
 `action` can be "set" or "append".  If the attribute is "class", there is an additional "remove" action you can use.
+
+
 
 <script type="module">
 import mutate from "https://unpkg.com/dom-mutator@0.3.1/dist/dom-mutator.esm.js";
