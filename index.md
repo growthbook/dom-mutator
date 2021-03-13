@@ -8,19 +8,25 @@ For those times you need to apply DOM changes on top of HTML you don't control. 
   flex-wrap: wrap;
   border: 1px dotted #ddd;
   margin-bottom: 20px;
+  padding: 10px;
+  min-height: 72px;
 }
 .demo {
-  width: 50px;
-  height: 500px;
-  background: #ddd;
-  border-radius: 5px;
-  margin: 10px;
-  line-height: 50px;
-  text-align: center;
-  font-size: 18px;
+    width: 50px;
+    height: 50px;
+    background: #129462;
+    border-radius: 5px;
+    font-weight: bold;
+    color: #fff;
+    border: 1px solid #ccc;
+    line-height: 50px;
+    text-align: center;
+    font-size: 18px;
+    margin-right: 10px;
 }
 </style>
 
+<p>Elements constantly being created/destroyed.
 <div class="demo-holder">
   <div class="demo">a</div>
   <div class="demo">b</div>
@@ -28,7 +34,7 @@ For those times you need to apply DOM changes on top of HTML you don't control. 
   <div class="demo">d</div>
 </div>
 
-<div>
+<div style="margin-bottom:30px">
   <h4>Mutation: Make Uppercase</h4>
   <button id='uppercase'>Start</button>
   <button id='revert'>Stop</button>
