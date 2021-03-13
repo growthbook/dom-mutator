@@ -1,37 +1,78 @@
-## Welcome to GitHub Pages
+For those times you need to apply DOM changes on top of HTML you don't control.  The underlying site may lazy load elements, constantly re-render with React, or do other weird stuff.  **dom-mutator** handles all of that for you.
 
-You can use the [editor on GitHub](https://github.com/growthbook/dom-mutator/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+## Demo
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+<style>
+.demo-holder {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px dotted #ddd;
+  margin-bottom: 20px;
+}
+.demo {
+  width: 50px;
+  height: 500px;
+  background: #ddd;
+  border-radius: 5px;
+  margin: 10px;
+  line-height: 50px;
+  text-align: center;
+  font-size: 18px;
+}
+</style>
 
-### Markdown
+<div class="demo-holder">
+  <div class="demo">a</div>
+  <div class="demo">b</div>
+  <div class="demo">c</div>
+  <div class="demo">d</div>
+</div>
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+<div>
+  <h4>Mutation: Make Uppercase</h4>
+  <button id='uppercase'>Start</button>
+  <button id='revert'>Stop</button>
+</div>
 
-```markdown
-Syntax highlighted code block
+<script type="module">
+import mutate from "https://unpkg.com/dom-mutator@0.3.1/dist/dom-mutator.esm.js";
 
-# Header 1
-## Header 2
-### Header 3
+const demoHolder = document.querySelector(".demo-holder");
+let i = 5;
+window.setInterval(() => {
+  if(i>=10) {
+    demoHolder.innerHTML = "";
+    i = 1;
+    return;
+  }
 
-- Bulleted
-- List
+  const div = document.createElement("div");
+  div.innerHTML = String.fromCharCode(i+96);
+  div.className = "demo";
+  demoHolder.append(div);
+  i++;
+}, 500);
 
-1. Numbered
-2. List
+let controller = null;
+document.querySelector("#uppercase").addEventListener("click", (e) => {
+  e.preventDefault();
+  if(controller) return;
+  controller = mutate.html(".demo", html => html.toUpperCase());
+});
+document.querySelector("#revert").addEventListener("click", (e) => {
+  e.preventDefault();
+  if(!controller) return;
+  controller.revert();
+  controller = null;
+});
+</script>
 
-**Bold** and _Italic_ and `Code` text
+```js
+import mutate from "dom-mutator"
 
-[Link](url) and ![Image](src)
+// Start mutating
+const mutation = mutate.html(".demo", html => html.toUpperCase());
+
+// Stop mutating
+mutation.revert();
 ```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/growthbook/dom-mutator/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
