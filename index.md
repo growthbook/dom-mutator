@@ -24,22 +24,21 @@ For those times you need to apply DOM changes on top of HTML you don't control. 
     font-size: 18px;
     margin-right: 10px;
 }
+.apply-area {
+  margin-bottom: 30px;
+}
 </style>
 
-<p>Elements constantly being created/destroyed.
+<p>Works even when new elements are created or the original value changes!</p>
 <div class="demo-holder">
   <div class="demo">a</div>
-  <div class="demo">b</div>
-  <div class="demo">c</div>
-  <div class="demo">d</div>
 </div>
 
-<div style="margin-bottom:30px;">
-  <h4>Mutation: Make Uppercase</h4>
+<div class="apply-area">
+  <h4>Apply Mutation</h4>
   <button id='uppercase'>Start</button>
   <button id='revert'>Stop</button>
 </div>
-
 
 
 ```js
@@ -53,23 +52,26 @@ mutation.revert();
 ```
 
 
+
 <script type="module">
 import mutate from "https://unpkg.com/dom-mutator@0.3.1/dist/dom-mutator.esm.js";
 
 const demoHolder = document.querySelector(".demo-holder");
-let i = 5;
 window.setInterval(() => {
-  if(i>=10) {
+  const els = document.querySelectorAll(".demo");
+  if(els.length > 10) {
     demoHolder.innerHTML = "";
-    i = 1;
     return;
   }
 
+  els.forEach(el => {
+    el.innerHTML = String.charCodeFrom(el.innerHTML.charCodeAt(0)+1);
+  });
+
   const div = document.createElement("div");
-  div.innerHTML = String.fromCharCode(i+96);
+  div.innerHTML = "a";
   div.className = "demo";
   demoHolder.append(div);
-  i++;
 }, 500);
 
 let controller = null;
