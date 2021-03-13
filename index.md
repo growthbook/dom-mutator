@@ -34,11 +34,24 @@ For those times you need to apply DOM changes on top of HTML you don't control. 
   <div class="demo">d</div>
 </div>
 
-<div style="margin-bottom:30px">
+<div style="margin-bottom:30px;">
   <h4>Mutation: Make Uppercase</h4>
   <button id='uppercase'>Start</button>
   <button id='revert'>Stop</button>
 </div>
+
+
+
+```js
+import mutate from "dom-mutator"
+
+// Start mutating
+const mutation = mutate.html(".demo", html => html.toUpperCase());
+
+// Stop mutating
+mutation.revert();
+```
+
 
 <script type="module">
 import mutate from "https://unpkg.com/dom-mutator@0.3.1/dist/dom-mutator.esm.js";
@@ -72,13 +85,3 @@ document.querySelector("#revert").addEventListener("click", (e) => {
   controller = null;
 });
 </script>
-
-```js
-import mutate from "dom-mutator"
-
-// Start mutating
-const mutation = mutate.html(".demo", html => html.toUpperCase());
-
-// Stop mutating
-mutation.revert();
-```
