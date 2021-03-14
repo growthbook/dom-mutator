@@ -1,6 +1,27 @@
 # DOM Mutator
 
-Apply persistent DOM mutations on top of anything (static HTML, React, Vue, etc.)
+For those times you need to apply persistent DOM changes on top of HTML you don’t control.
+
+View demo: https://growthbook.github.io/dom-mutator/
+
+```ts
+const mutation = mutate.html("#greeting", html => html + ' world');
+
+// works even if the selector doesn't exist yet
+document.body.innerHTML += "<div id='greeting'>hello</div>";
+
+// "hello world"
+
+// re-applies if there's an external change
+document.getElementById('greeting').innerHTML = 'hola';
+
+// "hola world"
+
+// Revert to the last externally set value
+mutation.revert();
+
+// "hola"
+```
 
 ```ts
 import mutate from "dom-mutator";
@@ -9,86 +30,127 @@ mutate.html("h1", html => html.toUpperCase());
 
 mutate.classes("div.greeting", classes => classes.add("new-class"));
 
-mutate.attr(".get-started", "title", (oldVal) => "This is my new title attribute");
+mutate.attribute(".get-started", "title", (oldVal) => "This is my new title attribute");
 ```
 
 Features:
 
 *  No dependencies, written in Typescript, 100% test coverage
 *  Super fast and light-weight (1Kb gzipped)
-*  Mutations will apply to elements that match the selector (even ones that don't exist yet)
-*  Mutations persist even if the underlying element is updated externally (e.g. by a React render)
+*  Persists mutations even if the underlying element is updated externally (e.g. by a React render)
+*  Picks up new matching elements that are added to the DOM
 *  Easily remove a mutation at any time
-
-`yarn add dom-mutator` OR `npm install --save dom-mutator`.
 
 ![Build Status](https://github.com/growthbook/dom-mutator/workflows/CI/badge.svg)
 
-## Basic Usage
+## Installation
 
-innerHTML example:
+Install with npm or yarn (recommended):
 
-```ts
+`yarn add dom-mutator` OR `npm install --save dom-mutator`.
+
+```js
 import mutate from "dom-mutator";
-
-// Mutate the innerHTML of an element
-const stop = mutate.html("#greeting", html => html + ' world');
-
-// works even if the selector doesn't exist yet
-document.body.innerHTML += "<div id='greeting'>hello</div>";
-
-//**** div innerHTML = "hello world" at this point!
-
-// mutation persists even if there is an external change
-document.getElementById('greeting').innerHTML = 'hola';
-
-//**** div innerHTML = "hola world"
-
-// Stop mutating the element
-stop();
-
-//**** div innerHTML = "hola" (the last externally set value)
+...
 ```
 
-## Available Mutation Types
+OR use with unpkg:
 
-The `mutate` object has a few different methods you can call:
-
--  html
--  classList
--  attr
-
-
-```ts
-mutate.html("h1", html => html.toUpperCase());
-
-mutate.classList("div.greeting", classes => classes.add("new-class"));
-
-mutate.attr(".get-started", "title", oldVal => "This is my new title attribute");
+```html
+<script type="module">
+import mutate from "https://unpkg.com/dom-mutator/dist/dom-mutator.esm.js";
+...
+</script>
 ```
 
-### Declarative Mutations
+## Usage
 
-If you don't need the full flexibility required by callback functions or you need to serialize the list of mutations in JSON, you can use the `declarative` method:
+There are 4 mutate methods available: `html`, `classes`, `attribute`, and `declarative`.
+
+### html
+
+Mutate an element's innerHTML
 
 ```ts
-mutate.declarative({
-  selector: "h1",
-  action: "set",
-  attribute: "html",
-  value: "hello world"
+// Signature
+mutate.html(selector: string, (oldInnerHTML: string) => string);
+
+// Example
+mutate.html("h1", x => x.toUpperCase());
+```
+
+### classes
+
+Mutate the set of classes for an element
+
+```ts
+// Signature
+mutate.classes(selector: string, (classes: Set<string>) => void);
+
+// Example
+mutate.classes("h1", (classes) => {
+  classes.add("green");
+  classes.remove("red");
 });
 ```
 
-There are 3 supported "actions": `append`, `set`, and `remove`.  The `remove` action can only be used with the `class` attribute.
+### attribute
+
+Mutate the value of an HTML element's attribute
+
+```ts
+// Signature
+mutate.attribute(selector: string, attribute: string, (oldValue: string) => string);
+
+// Example
+mutate.attribute(".link", "href", (href) => href + "?foo");
+```
+
+### declarative
+
+Mutate the html, classes, or attributes using a declarative syntax instead of callbacks.
+Perfect for serialization.
+
+```ts
+// Signature
+mutate.declarative({
+  selector: string,
+  action: "set" | "append" | "remove",
+  attribute: "html" | "class" | string,
+  value: string
+});
+
+// Examples
+const mutations = [
+  {
+    selector: "h1",
+    action: "set",
+    attribute: "html",
+    value: "new text"
+  },
+  {
+    selector: ".get-started",
+    action: "remove",
+    attribute: "class",
+    value: "green"
+  },
+  {
+    selector: "a",
+    action: "append",
+    attribute: "href",
+    value: "?foo"
+  }
+];
+mutations.forEach(m=>mutate.declarative(m));
+```
 
 ## How it Works
 
-When you call `mutate`, we start watching the document for elements matching the selector to appear. We do this with a single shared MutationObserver on the body.
+When you create a mutation, we start watching the document for elements matching the selector to appear. We do this with a single shared MutationObserver on the body.
 
 When a matching element is found, we attach a separate MutationObserver filtered to the exact attribute being mutated.  If an external change happens (e.g. from a React render), we re-apply your mutation on top of the new baseline value.
 
-When `stop` is called, we undo the change and go back to the last externally set value. We also disconnect the element's MutationObserver to save resources.
+When `revert` is called, we undo the change and go back to the last externally set value. We also disconnect the element's MutationObserver to save resources.
 
 ## Pausing / Resuming the Global MutationObserver
 
