@@ -279,9 +279,8 @@ function stopMutating(mutation: AnyMutationRecord, el: Element) {
 
 function refreshElementsSet(mutation: AnyMutationRecord) {
   const existingEls = new Set(mutation.elements);
-
   const newElements: Set<Element> = new Set();
-  const nodes = document.body.querySelectorAll(mutation.selector);
+  const nodes = document.querySelectorAll(mutation.selector);
   nodes.forEach(el => {
     newElements.add(el);
     if (!existingEls.has(el)) {
@@ -325,7 +324,7 @@ export function connectGlobalObserver() {
   }
 
   refreshAllElementSets();
-  observer.observe(document.body, {
+  observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: false,
