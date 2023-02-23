@@ -1,44 +1,47 @@
-interface HTMLMutationRecord {
+interface BaseMutation {
+  selector: string;
+  elements: Set<Element>;
+}
+
+interface HTMLMutation extends BaseMutation {
   kind: 'html';
-  selector: string;
-  mutate: (val: string) => string;
-  elements: Set<Element>;
+  mutate: (innerHtml: string) => string;
 }
-interface ClassMutationRecord {
+
+interface ClassnameMutation extends BaseMutation {
   kind: 'class';
-  selector: string;
-  mutate: (val: Set<string>) => void;
-  elements: Set<Element>;
+  mutate: (classNames: Set<string>) => void;
 }
-interface AttributeMutationRecord {
+
+interface AttrMutation extends BaseMutation {
   kind: 'attribute';
   attribute: string;
-  selector: string;
-  mutate: (val: string) => string;
-  elements: Set<Element>;
+  mutate: (value: string | null) => string | null;
 }
-type AnyMutationRecord = StringMutationRecord | SetMutationRecord;
 
-type StringMutationRecord = HTMLMutationRecord | AttributeMutationRecord;
+type Mutation = HTMLMutation | ClassnameMutation | AttrMutation;
 
-type SetMutationRecord = ClassMutationRecord;
-
-interface ElementAttributeRecord<T> {
+interface ElementPropertyRecord<T, V> {
   observer: MutationObserver;
-  originalValue: string;
-  virtualValue: string;
+  originalValue: V;
+  virtualValue: V;
   isDirty: boolean;
   mutations: T[];
   el: Element;
-  getCurrentValue: (el: Element) => string;
-  setValue: (el: Element, value: string) => void;
-  runMutations: (record: ElementAttributeRecord<T>) => void;
+  getCurrentValue: (el: Element) => V;
+  setValue: (el: Element, value: V) => void;
+  mutationRunner: (record: ElementPropertyRecord<T, V>) => void;
 }
+
+type HTMLRecord = ElementPropertyRecord<HTMLMutation, string>;
+type ClassnameRecord = ElementPropertyRecord<ClassnameMutation, string>;
+type AttributeRecord = ElementPropertyRecord<AttrMutation, string | null>;
+
 interface ElementRecord {
-  el: Element;
-  html?: ElementAttributeRecord<HTMLMutationRecord>;
-  classes?: ElementAttributeRecord<ClassMutationRecord>;
+  element: Element;
+  html?: HTMLRecord;
+  classes?: ClassnameRecord;
   attributes: {
-    [key: string]: ElementAttributeRecord<AttributeMutationRecord>;
+    [key: string]: AttributeRecord;
   };
 }

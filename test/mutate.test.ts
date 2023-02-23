@@ -269,6 +269,13 @@ describe('mutate', () => {
     document.body.innerHTML = '<div title="foo"></div>';
     cleanup(mutate.attribute('div', 'title', () => ''));
     await sleep();
+    expect(document.body.innerHTML).toEqual('<div title=""></div>');
+  });
+
+  it('removes attributes when set to null', async () => {
+    document.body.innerHTML = '<div title="foo"></div>';
+    cleanup(mutate.attribute('div', 'title', () => null));
+    await sleep();
     expect(document.body.innerHTML).toEqual('<div></div>');
   });
 
@@ -343,6 +350,12 @@ describe('mutate', () => {
         value: 'title',
       },
       {
+        selector: 'h1.title',
+        action: 'append',
+        attribute: 'data-growthbook',
+        value: '',
+      },
+      {
         selector: 'h1',
         action: 'append',
         attribute: 'class',
@@ -358,7 +371,7 @@ describe('mutate', () => {
     await sleep();
 
     expect(document.body.innerHTML).toEqual(
-      '<h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
+      '<h1 class="title another" title="title" data-growthbook="">hello</h1><p class="text">world!</p>'
     );
 
     revertAll();
