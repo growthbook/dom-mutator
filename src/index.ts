@@ -366,28 +366,32 @@ function declarative({
 }: DeclarativeMutation): MutationController {
   if (attr === 'html') {
     if (action === 'append') {
-      return html(selector, val => val + value);
+      return html(selector, val => val + (value ?? ''));
     } else if (action === 'set') {
-      return html(selector, () => value);
+      return html(selector, () => value ?? '');
     }
   } else if (attr === 'class') {
     if (action === 'append') {
-      return classes(selector, val => val.add(value));
+      return classes(selector, val => {
+        if (value) val.add(value);
+      });
     } else if (action === 'remove') {
-      return classes(selector, val => val.delete(value));
+      return classes(selector, val => {
+        if (value) val.delete(value);
+      });
     } else if (action === 'set') {
       return classes(selector, val => {
         val.clear();
-        val.add(value);
+        if (value) val.add(value);
       });
     }
   } else {
     if (action === 'append') {
       return attribute(selector, attr, val =>
-        val !== null ? val + value : value
+        val !== null ? val + (value ?? '') : value ?? ''
       );
     } else if (action === 'set') {
-      return attribute(selector, attr, () => value);
+      return attribute(selector, attr, () => value ?? '');
     } else if (action === 'remove') {
       return attribute(selector, attr, () => null);
     }
@@ -403,7 +407,7 @@ export type DeclarativeMutation = {
   selector: string;
   attribute: string;
   action: 'append' | 'set' | 'remove';
-  value: string;
+  value?: string;
 };
 
 export default {
