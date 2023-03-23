@@ -128,7 +128,7 @@ function getElementClassRecord(el: Element): ClassnameRecord {
 }
 
 const getAttrValue = (attrName: string) => (el: Element) =>
-  el.getAttribute(attrName) || null;
+  el.getAttribute(attrName) ?? null;
 const setAttrValue = (attrName: string) => (el: Element, val: string | null) =>
   val !== null ? el.setAttribute(attrName, val) : el.removeAttribute(attrName);
 function getElementAttributeRecord(el: Element, attr: string): AttributeRecord {
