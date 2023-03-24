@@ -1,46 +1,47 @@
-const validAttributeName = /^[a-zA-Z:_][a-zA-Z0-9:_.-]*$/;
+export const validAttributeName = /^[a-zA-Z:_][a-zA-Z0-9:_.-]*$/;
 const nullController: MutationController = {
   revert: () => {},
 };
 
 const elements: Map<Element, ElementRecord> = new Map();
-const mutations: Set<AnyMutationRecord> = new Set();
+const mutations: Set<Mutation> = new Set();
 
 function getObserverInit(attr: string): MutationObserverInit {
-  if (attr === 'html') {
-    return {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      characterData: true,
-    };
-  }
-  return {
-    childList: false,
-    subtree: false,
-    attributes: true,
-    attributeFilter: [attr],
-  };
+  return attr === 'html'
+    ? {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        characterData: true,
+      }
+    : {
+        childList: false,
+        subtree: false,
+        attributes: true,
+        attributeFilter: [attr],
+      };
 }
 
-function getElementRecord(el: Element): ElementRecord {
-  let ret = elements.get(el);
-  if (!ret) {
-    ret = { el, attributes: {} };
-    elements.set(el, ret);
+function getElementRecord(element: Element): ElementRecord {
+  let record = elements.get(element);
+
+  if (!record) {
+    record = { element, attributes: {} };
+    elements.set(element, record);
   }
-  return ret;
+
+  return record;
 }
 
-function newMutatedElementAttribute<T>(
+function createElementPropertyRecord(
   el: Element,
   attr: string,
-  getCurrentValue: (el: Element) => string,
-  setValue: (el: Element, val: string) => void,
-  runMutations: (record: ElementAttributeRecord<T>) => void
-): ElementAttributeRecord<T> {
+  getCurrentValue: (el: Element) => any,
+  setValue: (el: Element, val: any) => void,
+  mutationRunner: (record: ElementPropertyRecord<any, any>) => void
+) {
   const currentValue = getCurrentValue(el);
-  const ret: ElementAttributeRecord<T> = {
+  const record: ElementPropertyRecord<any, any> = {
     isDirty: false,
     originalValue: currentValue,
     virtualValue: currentValue,
@@ -48,43 +49,21 @@ function newMutatedElementAttribute<T>(
     el,
     observer: new MutationObserver(() => {
       const currentValue = getCurrentValue(el);
-      if (currentValue === ret.virtualValue) return;
-      ret.originalValue = currentValue;
-      runMutations(ret);
+      if (currentValue === record.virtualValue) return;
+      record.originalValue = currentValue;
+      mutationRunner(record);
     }),
-    runMutations,
+    mutationRunner,
     setValue,
     getCurrentValue,
   };
-  ret.observer.observe(el, getObserverInit(attr));
-  return ret;
+  record.observer.observe(el, getObserverInit(attr));
+  return record;
 }
 
-function stringRunner(record: {
-  originalValue: string;
-  mutations: { mutate: (v: string) => string }[];
-}) {
-  let val = record.originalValue;
-  record.mutations.forEach(m => (val = m.mutate(val)));
-  return val;
-}
-function setRunner(
-  val: Set<string>,
-  record: {
-    mutations: { mutate: (v: Set<string>) => void }[];
-  }
-) {
-  record.mutations.forEach(m => m.mutate(val));
-  return val;
-}
 function queueIfNeeded(
-  val: string,
-  record: {
-    el: Element;
-    getCurrentValue: (el: Element) => string;
-    virtualValue: string;
-    isDirty: boolean;
-  }
+  val: string | null,
+  record: ElementPropertyRecord<any, any>
 ) {
   const currentVal = record.getCurrentValue(record.el);
   record.virtualValue = val;
@@ -94,18 +73,14 @@ function queueIfNeeded(
   }
 }
 
-function HTMLMutationRunner(
-  record: ElementAttributeRecord<HTMLMutationRecord>
-) {
-  queueIfNeeded(getTransformedHTML(stringRunner(record)), record);
+function htmlMutationRunner(record: HTMLRecord) {
+  let val = record.originalValue;
+  record.mutations.forEach(m => (val = m.mutate(val)));
+  queueIfNeeded(getTransformedHTML(val), record);
 }
-function ClassMutationRunner(
-  record: ElementAttributeRecord<ClassMutationRecord>
-) {
-  const val = setRunner(
-    new Set(record.originalValue.split(/\s+/).filter(Boolean)),
-    record
-  );
+function classMutationRunner(record: ClassnameRecord) {
+  const val = new Set(record.originalValue.split(/\s+/).filter(Boolean));
+  record.mutations.forEach(m => m.mutate(val));
   queueIfNeeded(
     Array.from(val)
       .filter(Boolean)
@@ -113,25 +88,23 @@ function ClassMutationRunner(
     record
   );
 }
-function AttributeMutationRunner(
-  record: ElementAttributeRecord<AttributeMutationRecord>
-) {
-  queueIfNeeded(stringRunner(record), record);
+function attrMutationRunner(record: AttributeRecord) {
+  let val: string | null = record.originalValue;
+  record.mutations.forEach(m => (val = m.mutate(val)));
+  queueIfNeeded(val, record);
 }
 
 const getHTMLValue = (el: Element) => el.innerHTML;
 const setHTMLValue = (el: Element, value: string) => (el.innerHTML = value);
-function getElementHTMLRecord(
-  el: Element
-): ElementAttributeRecord<HTMLMutationRecord> {
-  const elementRecord = getElementRecord(el);
+function getElementHTMLRecord(element: Element): HTMLRecord {
+  const elementRecord = getElementRecord(element);
   if (!elementRecord.html) {
-    elementRecord.html = newMutatedElementAttribute(
-      el,
+    elementRecord.html = createElementPropertyRecord(
+      element,
       'html',
       getHTMLValue,
       setHTMLValue,
-      HTMLMutationRunner
+      htmlMutationRunner
     );
   }
   return elementRecord.html;
@@ -140,43 +113,40 @@ function getElementHTMLRecord(
 const setClassValue = (el: Element, val: string) =>
   val ? (el.className = val) : el.removeAttribute('class');
 const getClassValue = (el: Element) => el.className;
-function getElementClassRecord(
-  el: Element
-): ElementAttributeRecord<ClassMutationRecord> {
+function getElementClassRecord(el: Element): ClassnameRecord {
   const elementRecord = getElementRecord(el);
   if (!elementRecord.classes) {
-    elementRecord.classes = newMutatedElementAttribute(
+    elementRecord.classes = createElementPropertyRecord(
       el,
       'class',
       getClassValue,
       setClassValue,
-      ClassMutationRunner
+      classMutationRunner
     );
   }
   return elementRecord.classes;
 }
 
-function getElementAttributeRecord(
-  el: Element,
-  attr: string
-): ElementAttributeRecord<AttributeMutationRecord> {
+const getAttrValue = (attrName: string) => (el: Element) =>
+  el.getAttribute(attrName) ?? null;
+const setAttrValue = (attrName: string) => (el: Element, val: string | null) =>
+  val !== null ? el.setAttribute(attrName, val) : el.removeAttribute(attrName);
+function getElementAttributeRecord(el: Element, attr: string): AttributeRecord {
   const elementRecord = getElementRecord(el);
   if (!elementRecord.attributes[attr]) {
-    elementRecord.attributes[attr] = newMutatedElementAttribute(
+    elementRecord.attributes[attr] = createElementPropertyRecord(
       el,
       attr,
-      el => el.getAttribute(attr) || '',
-      (el, val) =>
-        val ? el.setAttribute(attr, val) : el.removeAttribute(attr),
-      AttributeMutationRunner
+      getAttrValue(attr),
+      setAttrValue(attr),
+      attrMutationRunner
     );
   }
   return elementRecord.attributes[attr];
 }
 
-function deleteElementAttributeRecord(el: Element, attr: string) {
+function deleteElementPropertyRecord(el: Element, attr: string) {
   const element = elements.get(el);
-  /* istanbul ignore next */
   if (!element) return;
   if (attr === 'html') {
     element.html?.observer?.disconnect();
@@ -199,26 +169,27 @@ function getTransformedHTML(html: string) {
   return transformContainer.innerHTML;
 }
 
-function setAttributeValue<T>(
+function setPropertyValue<T extends ElementPropertyRecord<any, any>>(
   el: Element,
   attr: string,
-  m: ElementAttributeRecord<T>
+  m: T
 ) {
   if (!m.isDirty) return;
   m.isDirty = false;
   const val = m.virtualValue;
   if (!m.mutations.length) {
-    deleteElementAttributeRecord(el, attr);
+    deleteElementPropertyRecord(el, attr);
   }
   m.setValue(el, val);
 }
 
 let raf = false;
+
 function setValue(m: ElementRecord, el: Element) {
-  m.html && setAttributeValue(el, 'html', m.html);
-  m.classes && setAttributeValue(el, 'class', m.classes);
+  m.html && setPropertyValue<HTMLRecord>(el, 'html', m.html);
+  m.classes && setPropertyValue<ClassnameRecord>(el, 'class', m.classes);
   Object.keys(m.attributes).forEach(attr => {
-    setAttributeValue(el, attr, m.attributes[attr]);
+    setPropertyValue<AttributeRecord>(el, attr, m.attributes[attr]);
   });
 }
 function setValues() {
@@ -232,74 +203,61 @@ function queueDOMUpdates() {
   }
 }
 
-function startMutating(mutation: AnyMutationRecord, el: Element) {
-  mutation.elements.add(el);
-
+// find or create ElementPropertyRecord, add mutation to it, then run
+function startMutating(mutation: Mutation, element: Element) {
+  let record: ElementPropertyRecord<any, any> | null = null;
   if (mutation.kind === 'html') {
-    const record = getElementHTMLRecord(el);
-    record.mutations.push(mutation);
-    record.runMutations(record);
+    record = getElementHTMLRecord(element);
   } else if (mutation.kind === 'class') {
-    const record = getElementClassRecord(el);
-    record.mutations.push(mutation);
-    record.runMutations(record);
+    record = getElementClassRecord(element);
   } else if (mutation.kind === 'attribute') {
-    const record = getElementAttributeRecord(el, mutation.attribute);
-    record.mutations.push(mutation);
-    record.runMutations(record);
+    record = getElementAttributeRecord(element, mutation.attribute);
   }
+  if (!record) return;
+  record.mutations.push(mutation);
+  record.mutationRunner(record);
 }
 
-function stopMutating(mutation: AnyMutationRecord, el: Element) {
-  mutation.elements.delete(el);
-
+// get (existing) ElementPropertyRecord, remove mutation from it, then run
+function stopMutating(mutation: Mutation, el: Element) {
+  let record: ElementPropertyRecord<any, any> | null = null;
   if (mutation.kind === 'html') {
-    const record = getElementHTMLRecord(el);
-    const index = record.mutations.indexOf(mutation);
-    if (index !== -1) {
-      record.mutations.splice(index, 1);
-    }
-    record.runMutations(record);
+    record = getElementHTMLRecord(el);
   } else if (mutation.kind === 'class') {
-    const record = getElementClassRecord(el);
-    const index = record.mutations.indexOf(mutation);
-    if (index !== -1) {
-      record.mutations.splice(index, 1);
-    }
-    record.runMutations(record);
+    record = getElementClassRecord(el);
   } else if (mutation.kind === 'attribute') {
-    const record = getElementAttributeRecord(el, mutation.attribute);
-    const index = record.mutations.indexOf(mutation);
-    if (index !== -1) {
-      record.mutations.splice(index, 1);
-    }
-    record.runMutations(record);
+    record = getElementAttributeRecord(el, mutation.attribute);
   }
+  if (!record) return;
+  const index = record.mutations.indexOf(mutation);
+  if (index !== -1) record.mutations.splice(index, 1);
+  record.mutationRunner(record);
 }
 
-function refreshElementsSet(mutation: AnyMutationRecord) {
-  const existingEls = new Set(mutation.elements);
+// maintain list of elements associated with mutation
+function refreshElementsSet(mutation: Mutation) {
+  const existingElements = new Set(mutation.elements);
   const newElements: Set<Element> = new Set();
-  const nodes = document.querySelectorAll(mutation.selector);
-  nodes.forEach(el => {
+  const matchingElements = document.querySelectorAll(mutation.selector);
+
+  matchingElements.forEach(el => {
     newElements.add(el);
-    if (!existingEls.has(el)) {
+    if (!existingElements.has(el)) {
+      mutation.elements.add(el);
       startMutating(mutation, el);
     }
   });
 
-  existingEls.forEach(el => {
+  existingElements.forEach(el => {
     if (!newElements.has(el)) {
+      mutation.elements.delete(el);
       stopMutating(mutation, el);
     }
   });
 }
 
-function revertMutation(mutation: AnyMutationRecord) {
-  const els = new Set(mutation.elements);
-  els.forEach(el => {
-    stopMutating(mutation, el);
-  });
+function revertMutation(mutation: Mutation) {
+  mutation.elements.forEach(el => stopMutating(mutation, el));
   mutation.elements.clear();
   mutations.delete(mutation);
 }
@@ -314,7 +272,6 @@ export function disconnectGlobalObserver() {
   observer && observer.disconnect();
 }
 export function connectGlobalObserver() {
-  /* istanbul ignore next */
   if (typeof document === 'undefined') return;
 
   if (!observer) {
@@ -331,18 +288,17 @@ export function connectGlobalObserver() {
     characterData: false,
   });
 }
+
+// run on init
 connectGlobalObserver();
 
-function newMutationRecord(m: AnyMutationRecord): MutationController {
-  /* istanbul ignore next */
-  if (typeof document === 'undefined') {
-    // Not in a browser
-    return nullController;
-  }
-
+function newMutation(m: Mutation): MutationController {
+  // Not in a browser
+  if (typeof document === 'undefined') return nullController;
+  // add to global index of mutations
   mutations.add(m);
+  // run refresh on init to establish list of elements associated w/ mutation
   refreshElementsSet(m);
-
   return {
     revert: () => {
       revertMutation(m);
@@ -350,8 +306,11 @@ function newMutationRecord(m: AnyMutationRecord): MutationController {
   };
 }
 
-function html(selector: string, mutate: (value: string) => string) {
-  return newMutationRecord({
+function html(
+  selector: HTMLMutation['selector'],
+  mutate: HTMLMutation['mutate']
+) {
+  return newMutation({
     kind: 'html',
     elements: new Set(),
     mutate,
@@ -359,41 +318,38 @@ function html(selector: string, mutate: (value: string) => string) {
   });
 }
 
-function classes(selector: string, mutate: (classes: Set<string>) => void) {
-  return newMutationRecord({
+function classes(
+  selector: ClassnameMutation['selector'],
+  mutate: ClassnameMutation['mutate']
+) {
+  return newMutation({
     kind: 'class',
     elements: new Set(),
     mutate,
     selector,
   });
 }
+
 function attribute(
-  selector: string,
-  attribute: string,
-  mutate: (value: string) => string
+  selector: AttrMutation['selector'],
+  attribute: AttrMutation['attribute'],
+  mutate: AttrMutation['mutate']
 ) {
-  if (!validAttributeName.test(attribute)) {
-    return nullController;
-  }
+  if (!validAttributeName.test(attribute)) return nullController;
+
   if (attribute === 'class' || attribute === 'className') {
-    return newMutationRecord({
-      kind: 'class',
-      elements: new Set(),
-      mutate: classes => {
-        const val = mutate(Array.from(classes).join(' '));
-        classes.clear();
-        val
-          .split(/\s+/g)
-          .filter(Boolean)
-          .forEach(c => {
-            classes.add(c);
-          });
-      },
-      selector,
+    return classes(selector, classnames => {
+      const mutatedClassnames = mutate(Array.from(classnames).join(' '));
+      classnames.clear();
+      if (!mutatedClassnames) return;
+      mutatedClassnames
+        .split(/\s+/g)
+        .filter(Boolean)
+        .forEach(c => classnames.add(c));
     });
   }
 
-  return newMutationRecord({
+  return newMutation({
     kind: 'attribute',
     attribute,
     elements: new Set(),
@@ -410,26 +366,34 @@ function declarative({
 }: DeclarativeMutation): MutationController {
   if (attr === 'html') {
     if (action === 'append') {
-      return html(selector, val => val + value);
+      return html(selector, val => val + (value ?? ''));
     } else if (action === 'set') {
-      return html(selector, () => value);
+      return html(selector, () => value ?? '');
     }
   } else if (attr === 'class') {
     if (action === 'append') {
-      return classes(selector, val => val.add(value));
+      return classes(selector, val => {
+        if (value) val.add(value);
+      });
     } else if (action === 'remove') {
-      return classes(selector, val => val.delete(value));
+      return classes(selector, val => {
+        if (value) val.delete(value);
+      });
     } else if (action === 'set') {
       return classes(selector, val => {
         val.clear();
-        val.add(value);
+        if (value) val.add(value);
       });
     }
   } else {
     if (action === 'append') {
-      return attribute(selector, attr, val => val + value);
+      return attribute(selector, attr, val =>
+        val !== null ? val + (value ?? '') : value ?? ''
+      );
     } else if (action === 'set') {
-      return attribute(selector, attr, () => value);
+      return attribute(selector, attr, () => value ?? '');
+    } else if (action === 'remove') {
+      return attribute(selector, attr, () => null);
     }
   }
   return nullController;
@@ -443,7 +407,7 @@ export type DeclarativeMutation = {
   selector: string;
   attribute: string;
   action: 'append' | 'set' | 'remove';
-  value: string;
+  value?: string;
 };
 
 export default {
