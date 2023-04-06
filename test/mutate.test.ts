@@ -378,4 +378,109 @@ describe('mutate', () => {
     await sleep();
     expect(document.body.innerHTML).toEqual(initial);
   });
+
+  it('can move dom elements under a new parent element', async () => {
+    const initial = `
+      <div class="main">
+        <h1>title</h1>
+        <p class="text red">red</p>
+        <p class="text green">green</p>
+      </div>
+      <div class="footer">
+        <h4>footer</h4>
+        <p class="text blue">blue</p>
+      </div>
+    `;
+
+    document.body.innerHTML = initial;
+
+    const mutations: DeclarativeMutation[] = [
+      {
+        selector: 'h1',
+        action: 'set',
+        attribute: 'html',
+        value: 'hello',
+      },
+      {
+        selector: '.text.blue',
+        action: 'move',
+        parentSelector: '.main',
+      },
+    ];
+
+    mutations.forEach(m => {
+      cleanup(mutate.declarative(m));
+    });
+
+    expect(document.body.innerHTML).toEqual(`
+      <div class="main">
+        <h1>hello</h1>
+        <p class="text red">red</p>
+        <p class="text green">green</p>
+        <p class="text blue">blue</p>
+      </div>
+      <div class="footer">
+        <h4>footer</h4>
+      </div>
+    `);
+
+    revertAll();
+
+    await sleep();
+
+    expect(document.body.innerHTML).toEqual(initial);
+  });
+
+  it('can move dom elements under a new parent element and beside a sibling element', async () => {
+    const initial = `
+      <div class="main">
+        <h1>title</h1>
+        <p class="text red">red</p>
+        <p class="text blue">blue</p>
+      </div>
+      <div class="footer">
+        <h4>footer</h4>
+        <p class="text green">green</p>
+      </div>
+    `;
+
+    document.body.innerHTML = initial;
+
+    const mutations: DeclarativeMutation[] = [
+      {
+        selector: 'h1',
+        action: 'set',
+        attribute: 'html',
+        value: 'hello',
+      },
+      {
+        selector: '.text.green',
+        action: 'move',
+        parentSelector: '.main',
+        leftSiblingSelector: '.text.red',
+      },
+    ];
+
+    mutations.forEach(m => {
+      cleanup(mutate.declarative(m));
+    });
+
+    expect(document.body.innerHTML).toEqual(`
+      <div class="main">
+        <h1>hello</h1>
+        <p class="text red">red</p>
+        <p class="text green">green</p>
+        <p class="text blue">blue</p>
+      </div>
+      <div class="footer">
+        <h4>footer</h4>
+      </div>
+    `);
+
+    revertAll();
+
+    await sleep();
+
+    expect(document.body.innerHTML).toEqual(initial);
+  });
 });
