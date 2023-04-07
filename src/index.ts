@@ -98,35 +98,43 @@ function classMutationRunner(record: ClassnameRecord) {
     record
   );
 }
+
 function attrMutationRunner(record: AttributeRecord) {
   let val: string | null = record.originalValue;
   record.mutations.forEach(m => (val = m.mutate(val)));
   queueIfNeeded(val, record);
 }
-function moveMutationRunner(record: MoveRecord) {
-  const lastMutation = record.mutations[record.mutations.length - 1];
-  if (!lastMutation) {
-    return;
-  }
-  const val = lastMutation.mutate();
-  const parentNode = document.querySelector<HTMLElement>(val.parentSelector);
-  if (!parentNode) {
-    return;
-  }
-  let insertBeforeNode: HTMLElement | null = null;
-  if (val.insertBeforeSelector) {
-    const el = document.querySelector<HTMLElement>(val.insertBeforeSelector);
-    if (!el) return;
-    insertBeforeNode = el as HTMLElement;
-  }
 
-  queueIfNeeded(
-    {
-      parentNode,
-      insertBeforeNode,
-    },
-    record
-  );
+function _loadDOMNodes({
+  parentSelector,
+  insertBeforeSelector,
+}: ElementPosition): ElementPositionWithDomNode | null {
+  const parentNode = document.querySelector<HTMLElement>(parentSelector);
+
+  if (!parentNode) return null;
+
+  const insertBeforeNode = insertBeforeSelector
+    ? document.querySelector<HTMLElement>(insertBeforeSelector)
+    : null;
+
+  if (insertBeforeSelector && !insertBeforeNode) return null;
+
+  return {
+    parentNode,
+    insertBeforeNode,
+  };
+}
+
+function moveMutationRunner(record: MoveRecord) {
+  let val = record.originalValue;
+
+  record.mutations.forEach(m => {
+    const selectors = m.mutate();
+    const newNodes = _loadDOMNodes(selectors);
+    val = newNodes ?? val;
+  });
+
+  queueIfNeeded(val, record);
 }
 
 const getHTMLValue = (el: Element) => el.innerHTML;
@@ -441,6 +449,8 @@ function declarative({
   action,
   value,
   attribute: attr,
+  parentSelector,
+  insertBeforeSelector,
 }: DeclarativeMutation): MutationController {
   if (attr === 'html') {
     if (action === 'append') {
@@ -462,6 +472,10 @@ function declarative({
         val.clear();
         if (value) val.add(value);
       });
+    }
+  } else if (attr === 'position') {
+    if (action === 'set' && parentSelector) {
+      return move(selector, () => ({ insertBeforeSelector, parentSelector }));
     }
   } else {
     if (action === 'append') {
@@ -486,6 +500,8 @@ export type DeclarativeMutation = {
   attribute: string;
   action: 'append' | 'set' | 'remove';
   value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 };
 
 export default {

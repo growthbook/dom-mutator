@@ -75,7 +75,7 @@ describe('mutate', () => {
     expect(document.body.innerHTML).toEqual(initial);
   });
 
-  it('moves elements', async () => {
+  it('moves elements - appending', async () => {
     const initial = '<div><h1>Hello</h1></div><div class="new-parent"></div>';
     document.body.innerHTML = initial;
 
@@ -88,6 +88,54 @@ describe('mutate', () => {
     revertAll();
     await sleep();
     expect(document.body.innerHTML).toEqual(initial);
+  });
+
+  it('moves elements - inserting between', async () => {
+    const initial =
+      '<div><h1>Hello</h1></div><div class="new-parent"><div class="before-me"></div></div>';
+    document.body.innerHTML = initial;
+
+    cleanup(
+      mutate.move('h1', () => ({
+        parentSelector: '.new-parent',
+        insertBeforeSelector: '.before-me',
+      }))
+    );
+    await sleep();
+    expect(document.body.innerHTML).toEqual(
+      '<div></div><div class="new-parent"><h1>Hello</h1><div class="before-me"></div></div>'
+    );
+
+    revertAll();
+    await sleep();
+    expect(document.body.innerHTML).toEqual(initial);
+  });
+
+  it('moves elements - waits for elements to appear', async () => {
+    const initial = '<div><h1>Hello</h1></div><div class="new-parent"></div>';
+    document.body.innerHTML = initial;
+
+    cleanup(
+      mutate.move('h1', () => ({
+        parentSelector: '.new-parent',
+        insertBeforeSelector: '.before-me',
+      }))
+    );
+    await sleep();
+    expect(document.body.innerHTML).toEqual(initial);
+
+    document.body.innerHTML =
+      '<div><h1>Hello</h1></div><div class="new-parent"><div class="before-me"></div></div>';
+    await sleep();
+    expect(document.body.innerHTML).toEqual(
+      '<div></div><div class="new-parent"><h1>Hello</h1><div class="before-me"></div></div>'
+    );
+
+    revertAll();
+    await sleep();
+    expect(document.body.innerHTML).toEqual(
+      '<div><h1>Hello</h1></div><div class="new-parent"><div class="before-me"></div></div>'
+    );
   });
 
   it('reapplies changes quickly when mutation occurs', async () => {
@@ -330,7 +378,8 @@ describe('mutate', () => {
   });
 
   it('can do declarative mutations', async () => {
-    const initial = '<h1>title</h1><p class="text green">wor</p>';
+    const initial =
+      '<div class="main"><h1>title</h1><p class="text green">wor</p></div><div class="smiley-face">:)</div>';
     document.body.innerHTML = initial;
 
     const mutations: DeclarativeMutation[] = [
@@ -376,6 +425,12 @@ describe('mutate', () => {
         attribute: 'class',
         value: 'another',
       },
+      {
+        selector: '.smiley-face',
+        action: 'set',
+        attribute: 'position',
+        parentSelector: '.main',
+      },
     ];
 
     mutations.forEach(m => {
@@ -386,7 +441,7 @@ describe('mutate', () => {
     await sleep();
 
     expect(document.body.innerHTML).toEqual(
-      '<h1 class="title another" title="title" data-growthbook="">hello</h1><p class="text">world!</p>'
+      '<div class="main"><h1 class="title another" title="title" data-growthbook="">hello</h1><p class="text">world!</p><div class="smiley-face">:)</div></div>'
     );
 
     revertAll();
