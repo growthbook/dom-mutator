@@ -75,6 +75,21 @@ describe('mutate', () => {
     expect(document.body.innerHTML).toEqual(initial);
   });
 
+  it('moves elements', async () => {
+    const initial = '<div><h1>Hello</h1></div><div class="new-parent"></div>';
+    document.body.innerHTML = initial;
+
+    cleanup(mutate.move('h1', () => ({ parentSelector: '.new-parent' })));
+    await sleep();
+    expect(document.body.innerHTML).toEqual(
+      '<div></div><div class="new-parent"><h1>Hello</h1></div>'
+    );
+
+    revertAll();
+    await sleep();
+    expect(document.body.innerHTML).toEqual(initial);
+  });
+
   it('reapplies changes quickly when mutation occurs', async () => {
     document.body.innerHTML = '<p>original</p>';
     const el = document.querySelector('p');

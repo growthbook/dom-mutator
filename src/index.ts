@@ -62,12 +62,22 @@ function createElementPropertyRecord(
 }
 
 function queueIfNeeded(
-  val: string | null,
+  val: string | null | ElementPositionWithDomNode,
   record: ElementPropertyRecord<any, any>
 ) {
   const currentVal = record.getCurrentValue(record.el);
   record.virtualValue = val;
-  if (val !== currentVal) {
+
+  if (val && typeof val !== 'string') {
+    if (
+      !currentVal ||
+      val.parentNode !== currentVal.parentNode ||
+      val.insertBeforeNode !== currentVal.insertBeforeNode
+    ) {
+      record.isDirty = true;
+      queueDOMUpdates();
+    }
+  } else if (val !== currentVal) {
     record.isDirty = true;
     queueDOMUpdates();
   }
@@ -93,6 +103,31 @@ function attrMutationRunner(record: AttributeRecord) {
   record.mutations.forEach(m => (val = m.mutate(val)));
   queueIfNeeded(val, record);
 }
+function moveMutationRunner(record: MoveRecord) {
+  const lastMutation = record.mutations[record.mutations.length - 1];
+  if (!lastMutation) {
+    return;
+  }
+  const val = lastMutation.mutate();
+  const parentNode = document.querySelector<HTMLElement>(val.parentSelector);
+  if (!parentNode) {
+    return;
+  }
+  let insertBeforeNode: HTMLElement | null = null;
+  if (val.insertBeforeSelector) {
+    const el = document.querySelector<HTMLElement>(val.insertBeforeSelector);
+    if (!el) return;
+    insertBeforeNode = el as HTMLElement;
+  }
+
+  queueIfNeeded(
+    {
+      parentNode,
+      insertBeforeNode,
+    },
+    record
+  );
+}
 
 const getHTMLValue = (el: Element) => el.innerHTML;
 const setHTMLValue = (el: Element, value: string) => (el.innerHTML = value);
@@ -108,6 +143,29 @@ function getElementHTMLRecord(element: Element): HTMLRecord {
     );
   }
   return elementRecord.html;
+}
+
+const getElementPosition = (el: Element): ElementPositionWithDomNode => {
+  return {
+    parentNode: el.parentElement as HTMLElement,
+    insertBeforeNode: el.nextElementSibling as HTMLElement | null,
+  };
+};
+const setElementPosition = (el: Element, value: ElementPositionWithDomNode) => {
+  value.parentNode.insertBefore(el, value.insertBeforeNode);
+};
+function getElementMoveRecord(element: Element): MoveRecord {
+  const elementRecord = getElementRecord(element);
+  if (!elementRecord.position) {
+    elementRecord.position = createElementPropertyRecord(
+      element,
+      'position',
+      getElementPosition,
+      setElementPosition,
+      moveMutationRunner
+    );
+  }
+  return elementRecord.position;
 }
 
 const setClassValue = (el: Element, val: string) =>
@@ -154,6 +212,9 @@ function deleteElementPropertyRecord(el: Element, attr: string) {
   } else if (attr === 'class') {
     element.classes?.observer?.disconnect();
     delete element.classes;
+  } else if (attr === 'position') {
+    element.position?.observer?.disconnect();
+    delete element.position;
   } else {
     element.attributes?.[attr]?.observer?.disconnect();
     delete element.attributes[attr];
@@ -188,6 +249,7 @@ let raf = false;
 function setValue(m: ElementRecord, el: Element) {
   m.html && setPropertyValue<HTMLRecord>(el, 'html', m.html);
   m.classes && setPropertyValue<ClassnameRecord>(el, 'class', m.classes);
+  m.position && setPropertyValue<MoveRecord>(el, 'position', m.position);
   Object.keys(m.attributes).forEach(attr => {
     setPropertyValue<AttributeRecord>(el, attr, m.attributes[attr]);
   });
@@ -212,6 +274,8 @@ function startMutating(mutation: Mutation, element: Element) {
     record = getElementClassRecord(element);
   } else if (mutation.kind === 'attribute') {
     record = getElementAttributeRecord(element, mutation.attribute);
+  } else if (mutation.kind === 'move') {
+    record = getElementMoveRecord(element);
   }
   if (!record) return;
   record.mutations.push(mutation);
@@ -227,6 +291,8 @@ function stopMutating(mutation: Mutation, el: Element) {
     record = getElementClassRecord(el);
   } else if (mutation.kind === 'attribute') {
     record = getElementAttributeRecord(el, mutation.attribute);
+  } else if (mutation.kind === 'move') {
+    record = getElementMoveRecord(el);
   }
   if (!record) return;
   const index = record.mutations.indexOf(mutation);
@@ -312,6 +378,18 @@ function html(
 ) {
   return newMutation({
     kind: 'html',
+    elements: new Set(),
+    mutate,
+    selector,
+  });
+}
+
+function move(
+  selector: MoveMutation['selector'],
+  mutate: MoveMutation['mutate']
+) {
+  return newMutation({
+    kind: 'move',
     elements: new Set(),
     mutate,
     selector,
@@ -414,5 +492,6 @@ export default {
   html,
   classes,
   attribute,
+  move,
   declarative,
 };
