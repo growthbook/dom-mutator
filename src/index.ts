@@ -67,7 +67,6 @@ function queueIfNeeded(
 ) {
   const currentVal = record.getCurrentValue(record.el);
   record.virtualValue = val;
-
   if (val && typeof val !== 'string') {
     if (
       !currentVal ||
@@ -110,15 +109,11 @@ function _loadDOMNodes({
   insertBeforeSelector,
 }: ElementPosition): ElementPositionWithDomNode | null {
   const parentNode = document.querySelector<HTMLElement>(parentSelector);
-
   if (!parentNode) return null;
-
   const insertBeforeNode = insertBeforeSelector
     ? document.querySelector<HTMLElement>(insertBeforeSelector)
     : null;
-
   if (insertBeforeSelector && !insertBeforeNode) return null;
-
   return {
     parentNode,
     insertBeforeNode,
@@ -127,13 +122,11 @@ function _loadDOMNodes({
 
 function moveMutationRunner(record: MoveRecord) {
   let val = record.originalValue;
-
   record.mutations.forEach(m => {
     const selectors = m.mutate();
     const newNodes = _loadDOMNodes(selectors);
     val = newNodes ?? val;
   });
-
   queueIfNeeded(val, record);
 }
 
