@@ -120,12 +120,12 @@ function _loadDOMNodes({
   };
 }
 
-function moveMutationRunner(record: MoveRecord) {
+function positionMutationRunner(record: PositionRecord) {
   let val = record.originalValue;
   record.mutations.forEach(m => {
     const selectors = m.mutate();
     const newNodes = _loadDOMNodes(selectors);
-    val = newNodes ?? val;
+    val = newNodes || val;
   });
   queueIfNeeded(val, record);
 }
@@ -155,7 +155,7 @@ const getElementPosition = (el: Element): ElementPositionWithDomNode => {
 const setElementPosition = (el: Element, value: ElementPositionWithDomNode) => {
   value.parentNode.insertBefore(el, value.insertBeforeNode);
 };
-function getElementMoveRecord(element: Element): MoveRecord {
+function getElementPositionRecord(element: Element): PositionRecord {
   const elementRecord = getElementRecord(element);
   if (!elementRecord.position) {
     elementRecord.position = createElementPropertyRecord(
@@ -163,7 +163,7 @@ function getElementMoveRecord(element: Element): MoveRecord {
       'position',
       getElementPosition,
       setElementPosition,
-      moveMutationRunner
+      positionMutationRunner
     );
   }
   return elementRecord.position;
@@ -250,7 +250,7 @@ let raf = false;
 function setValue(m: ElementRecord, el: Element) {
   m.html && setPropertyValue<HTMLRecord>(el, 'html', m.html);
   m.classes && setPropertyValue<ClassnameRecord>(el, 'class', m.classes);
-  m.position && setPropertyValue<MoveRecord>(el, 'position', m.position);
+  m.position && setPropertyValue<PositionRecord>(el, 'position', m.position);
   Object.keys(m.attributes).forEach(attr => {
     setPropertyValue<AttributeRecord>(el, attr, m.attributes[attr]);
   });
@@ -275,8 +275,8 @@ function startMutating(mutation: Mutation, element: Element) {
     record = getElementClassRecord(element);
   } else if (mutation.kind === 'attribute') {
     record = getElementAttributeRecord(element, mutation.attribute);
-  } else if (mutation.kind === 'move') {
-    record = getElementMoveRecord(element);
+  } else if (mutation.kind === 'position') {
+    record = getElementPositionRecord(element);
   }
   if (!record) return;
   record.mutations.push(mutation);
@@ -292,8 +292,8 @@ function stopMutating(mutation: Mutation, el: Element) {
     record = getElementClassRecord(el);
   } else if (mutation.kind === 'attribute') {
     record = getElementAttributeRecord(el, mutation.attribute);
-  } else if (mutation.kind === 'move') {
-    record = getElementMoveRecord(el);
+  } else if (mutation.kind === 'position') {
+    record = getElementPositionRecord(el);
   }
   if (!record) return;
   const index = record.mutations.indexOf(mutation);
@@ -385,12 +385,12 @@ function html(
   });
 }
 
-function move(
-  selector: MoveMutation['selector'],
-  mutate: MoveMutation['mutate']
+function position(
+  selector: PositionMutation['selector'],
+  mutate: PositionMutation['mutate']
 ) {
   return newMutation({
-    kind: 'move',
+    kind: 'position',
     elements: new Set(),
     mutate,
     selector,
@@ -468,7 +468,10 @@ function declarative({
     }
   } else if (attr === 'position') {
     if (action === 'set' && parentSelector) {
-      return move(selector, () => ({ insertBeforeSelector, parentSelector }));
+      return position(selector, () => ({
+        insertBeforeSelector,
+        parentSelector,
+      }));
     }
   } else {
     if (action === 'append') {
@@ -501,6 +504,6 @@ export default {
   html,
   classes,
   attribute,
-  move,
+  position,
   declarative,
 };

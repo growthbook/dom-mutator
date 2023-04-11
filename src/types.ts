@@ -19,6 +19,11 @@ interface AttrMutation extends BaseMutation {
   mutate: (value: string | null) => string | null;
 }
 
+interface PositionMutation extends BaseMutation {
+  kind: 'position';
+  mutate: () => ElementPosition;
+}
+
 interface ElementPosition {
   parentSelector: string;
   insertBeforeSelector?: null | string;
@@ -28,12 +33,13 @@ interface ElementPositionWithDomNode {
   insertBeforeNode: HTMLElement | null;
 }
 
-interface MoveMutation extends BaseMutation {
-  kind: 'move';
-  mutate: () => ElementPosition;
-}
+type Mutation =
+  | HTMLMutation
+  | ClassnameMutation
+  | AttrMutation
+  | PositionMutation;
 
-type Mutation = HTMLMutation | ClassnameMutation | AttrMutation | MoveMutation;
+type MutationKind = Mutation['kind'];
 
 interface ElementPropertyRecord<T, V> {
   observer: MutationObserver;
@@ -50,8 +56,8 @@ interface ElementPropertyRecord<T, V> {
 type HTMLRecord = ElementPropertyRecord<HTMLMutation, string>;
 type ClassnameRecord = ElementPropertyRecord<ClassnameMutation, string>;
 type AttributeRecord = ElementPropertyRecord<AttrMutation, string | null>;
-type MoveRecord = ElementPropertyRecord<
-  MoveMutation,
+type PositionRecord = ElementPropertyRecord<
+  PositionMutation,
   ElementPositionWithDomNode
 >;
 
@@ -62,5 +68,5 @@ interface ElementRecord {
   attributes: {
     [key: string]: AttributeRecord;
   };
-  position?: MoveRecord;
+  position?: PositionRecord;
 }
