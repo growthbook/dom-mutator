@@ -1,5 +1,6 @@
 export const validAttributeName = /^[a-zA-Z:_][a-zA-Z0-9:_.-]*$/;
 const nullController: MutationController = {
+  mutation: null,
   revert: () => {},
 };
 
@@ -367,6 +368,7 @@ function newMutation(m: Mutation): MutationController {
   // run refresh on init to establish list of elements associated w/ mutation
   refreshElementsSet(m);
   return {
+    mutation: m,
     revert: () => {
       revertMutation(m);
     },
@@ -488,6 +490,7 @@ function declarative({
 }
 
 export type MutationController = {
+  mutation: Mutation | null;
   revert: () => void;
 };
 
