@@ -24,6 +24,10 @@ interface PositionMutation extends BaseMutation {
   mutate: () => ElementPosition;
 }
 
+interface CloneMutation extends BaseMutation {
+  kind: 'clone';
+}
+
 interface ElementPosition {
   parentSelector: string;
   insertBeforeSelector?: null | string;
@@ -37,7 +41,8 @@ type Mutation =
   | HTMLMutation
   | ClassnameMutation
   | AttrMutation
-  | PositionMutation;
+  | PositionMutation
+  | CloneMutation;
 
 type MutationKind = Mutation['kind'];
 
@@ -60,6 +65,7 @@ type PositionRecord = ElementPropertyRecord<
   PositionMutation,
   ElementPositionWithDomNode
 >;
+type CloneRecord = ElementPropertyRecord<CloneMutation, Element | null>;
 
 interface ElementRecord {
   element: Element;
@@ -69,4 +75,5 @@ interface ElementRecord {
     [key: string]: AttributeRecord;
   };
   position?: PositionRecord;
+  clone?: CloneRecord;
 }

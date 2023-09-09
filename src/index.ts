@@ -5,6 +5,8 @@ const nullController: MutationController = {
 
 const elements: Map<Element, ElementRecord> = new Map();
 const mutations: Set<Mutation> = new Set();
+const elementToClone: Map<Element, Element> = new Map();
+const clonesToDelete: Set<Element> = new Set();
 
 function getObserverInit(attr: string): MutationObserverInit {
   return attr === 'html'
@@ -169,6 +171,59 @@ function getElementPositionRecord(element: Element): PositionRecord {
   return elementRecord.position;
 }
 
+const getElementClone = (el: Element): Element | null => {
+  return elementToClone.get(el) || null;
+};
+
+const setElementClone = (el: Element) => {
+  const existing = elementToClone.get(el);
+
+  if (existing && (clonesToDelete.has(existing) || !document.contains(el))) {
+    // delete existing clone
+    clonesToDelete.delete(existing);
+    existing.remove();
+    elementToClone.delete(el);
+    return;
+  }
+
+  if (existing) return existing;
+
+  const clone = el.cloneNode(true) as Element;
+  elementToClone.set(el, clone);
+
+  // place clone next to original
+  el.parentElement?.insertBefore(clone, el.nextElementSibling);
+
+  return clone;
+};
+
+function cloneMutationRunner(record: CloneRecord) {
+  const clone = elementToClone.get(record.el);
+
+  if (clone && !record.mutations.length) {
+    clonesToDelete.add(clone);
+  } else if (clone) {
+    return;
+  }
+
+  record.isDirty = true;
+  queueDOMUpdates();
+}
+
+function getElementCloneRecord(element: Element): CloneRecord {
+  const elementRecord = getElementRecord(element);
+  if (!elementRecord.clone) {
+    elementRecord.clone = createElementPropertyRecord(
+      element,
+      'clone',
+      getElementClone,
+      setElementClone,
+      cloneMutationRunner
+    );
+  }
+  return elementRecord.clone;
+}
+
 const setClassValue = (el: Element, val: string) =>
   val ? (el.className = val) : el.removeAttribute('class');
 const getClassValue = (el: Element) => el.className;
@@ -251,6 +306,7 @@ function setValue(m: ElementRecord, el: Element) {
   m.html && setPropertyValue<HTMLRecord>(el, 'html', m.html);
   m.classes && setPropertyValue<ClassnameRecord>(el, 'class', m.classes);
   m.position && setPropertyValue<PositionRecord>(el, 'position', m.position);
+  m.clone && setPropertyValue<CloneRecord>(el, 'clone', m.clone);
   Object.keys(m.attributes).forEach(attr => {
     setPropertyValue<AttributeRecord>(el, attr, m.attributes[attr]);
   });
@@ -277,6 +333,8 @@ function startMutating(mutation: Mutation, element: Element) {
     record = getElementAttributeRecord(element, mutation.attribute);
   } else if (mutation.kind === 'position') {
     record = getElementPositionRecord(element);
+  } else if (mutation.kind === 'clone') {
+    record = getElementCloneRecord(element);
   }
   if (!record) return;
   record.mutations.push(mutation);
@@ -294,6 +352,8 @@ function stopMutating(mutation: Mutation, el: Element) {
     record = getElementAttributeRecord(el, mutation.attribute);
   } else if (mutation.kind === 'position') {
     record = getElementPositionRecord(el);
+  } else if (mutation.kind === 'clone') {
+    record = getElementCloneRecord(el);
   }
   if (!record) return;
   const index = record.mutations.indexOf(mutation);
@@ -437,6 +497,14 @@ function attribute(
   });
 }
 
+function clone(selector: CloneMutation['selector']) {
+  return newMutation({
+    kind: 'clone',
+    elements: new Set(),
+    selector,
+  });
+}
+
 function declarative({
   selector,
   action,
@@ -473,6 +541,10 @@ function declarative({
         parentSelector,
       }));
     }
+  } else if (attr === 'clone') {
+    if (action === 'append') {
+      return clone(selector);
+    }
   } else {
     if (action === 'append') {
       return attribute(selector, attr, val =>
@@ -506,4 +578,5 @@ export default {
   attribute,
   position,
   declarative,
+  clone,
 };

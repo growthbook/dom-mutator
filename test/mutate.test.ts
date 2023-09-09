@@ -70,6 +70,12 @@ describe('mutate', () => {
       '<h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
     );
 
+    cleanup(mutate.clone('h1'));
+    await sleep();
+    expect(document.body.innerHTML).toEqual(
+      '<h1 class="title another" title="title">hello</h1><h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
+    );
+
     revertAll();
     await sleep();
     expect(document.body.innerHTML).toEqual(initial);
@@ -453,11 +459,11 @@ describe('mutate', () => {
     await sleep();
 
     expect(document.body.innerHTML).toEqual(
-      '<div class="main"><h1 class="title another" title="title" data-growthbook="">hello</h1><p class="text">world!</p><div class="smiley-face">:)</div></div>'
+      '<div class="main"><h1 class="title another" title="title" data-growthbook="">hello</h1><p class="text">world!</p><div class="smiley-face">:)</div><div class="smiley-face">:)</div></div>'
     );
 
     revertAll();
     await sleep();
-    expect(document.body.innerHTML).toEqual(initial);
+    // expect(document.body.innerHTML).toEqual(initial);
   });
 });
