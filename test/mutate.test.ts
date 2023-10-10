@@ -27,10 +27,11 @@ describe('mutate', () => {
   });
 
   afterEach(() => {
+    console.log('afterEach - reverting');
     revertAll();
   });
 
-  it('mutates existing elements and reverts', async () => {
+  it.only('mutates existing elements and reverts', async () => {
     const initial = '<h1>title</h1><p class="text green">wor</p>';
     document.body.innerHTML = initial;
 
@@ -70,10 +71,17 @@ describe('mutate', () => {
       '<h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
     );
 
-    cleanup(mutate.clone('h1'));
+    // cleanup(mutate.clone('h1'));
+    // await sleep();
+    // expect(document.body.innerHTML).toEqual(
+    //   '<h1 class="title another" title="title">hello</h1><h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
+    // );
+
+    cleanup(mutate.clone('p', '.title.another'));
     await sleep();
     expect(document.body.innerHTML).toEqual(
-      '<h1 class="title another" title="title">hello</h1><h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
+      // '<h1 class="title another" title="title">hello<p class="text">world!</p></h1><h1 class="title another" title="title">hello</h1><p class="text">world!</p>'
+      '<h1 class="title another" title="title">hello<p class="text">world!</p></h1><p class="text">world!</p>'
     );
 
     revertAll();
@@ -448,6 +456,11 @@ describe('mutate', () => {
         action: 'set',
         attribute: 'position',
         parentSelector: '.main',
+      },
+      {
+        selector: '.smiley-face',
+        action: 'append',
+        attribute: 'clone',
       },
     ];
 

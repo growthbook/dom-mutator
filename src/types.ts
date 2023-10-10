@@ -26,6 +26,7 @@ interface PositionMutation extends BaseMutation {
 
 interface CloneMutation extends BaseMutation {
   kind: 'clone';
+  parentSelector?: string;
 }
 
 interface ElementPosition {
