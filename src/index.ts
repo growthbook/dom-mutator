@@ -153,6 +153,7 @@ const getElementPosition = (el: Element): ElementPositionWithDomNode => {
   };
 };
 const setElementPosition = (el: Element, value: ElementPositionWithDomNode) => {
+  console.log('setElementPosition');
   value.parentNode.insertBefore(el, value.insertBeforeNode);
 };
 function getElementPositionRecord(element: Element): PositionRecord {
@@ -285,6 +286,7 @@ function startMutating(mutation: Mutation, element: Element) {
 
 // get (existing) ElementPropertyRecord, remove mutation from it, then run
 function stopMutating(mutation: Mutation, el: Element) {
+  console.log('stopMutating');
   let record: ElementPropertyRecord<any, any> | null = null;
   if (mutation.kind === 'html') {
     record = getElementHTMLRecord(el);
@@ -303,27 +305,45 @@ function stopMutating(mutation: Mutation, el: Element) {
 
 // maintain list of elements associated with mutation
 function refreshElementsSet(mutation: Mutation) {
+  console.log('refreshElementsSet', {
+    mutation,
+    elements: mutation.elements.size,
+    shouldExitEarly: mutation.kind === 'position' && mutation.elements.size > 0,
+  });
+
+  if (mutation.kind === 'position' && mutation.elements.size > 0) {
+    console.log('refreshElementsSet - returning early');
+    return;
+  } else {
+    // debugger;
+  }
+
   const existingElements = new Set(mutation.elements);
-  const newElements: Set<Element> = new Set();
+  // const newElements: Set<Element> = new Set();
   const matchingElements = document.querySelectorAll(mutation.selector);
 
   matchingElements.forEach(el => {
-    newElements.add(el);
+    // newElements.add(el);
     if (!existingElements.has(el)) {
       mutation.elements.add(el);
+      console.log('startMutating', {
+        mutation,
+        el,
+      });
       startMutating(mutation, el);
     }
   });
 
-  existingElements.forEach(el => {
-    if (!newElements.has(el)) {
-      mutation.elements.delete(el);
-      stopMutating(mutation, el);
-    }
-  });
+  // existingElements.forEach(el => {
+  //   if (!newElements.has(el)) {
+  //     mutation.elements.delete(el);
+  //     stopMutating(mutation, el);
+  //   }
+  // });
 }
 
 function revertMutation(mutation: Mutation) {
+  console.log('revertMutation');
   mutation.elements.forEach(el => stopMutating(mutation, el));
   mutation.elements.clear();
   mutations.delete(mutation);
@@ -343,10 +363,12 @@ export function connectGlobalObserver() {
 
   if (!observer) {
     observer = new MutationObserver(() => {
+      console.log('global observer - refreshing');
       refreshAllElementSets();
     });
   }
 
+  console.log('init - refreshElementsSets');
   refreshAllElementSets();
   observer.observe(document.documentElement, {
     childList: true,
@@ -365,6 +387,7 @@ function newMutation(m: Mutation): MutationController {
   // add to global index of mutations
   mutations.add(m);
   // run refresh on init to establish list of elements associated w/ mutation
+  console.log('newMutation - refreshElementsSet');
   refreshElementsSet(m);
   return {
     revert: () => {
