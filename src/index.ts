@@ -303,22 +303,17 @@ function stopMutating(mutation: Mutation, el: Element) {
 
 // maintain list of elements associated with mutation
 function refreshElementsSet(mutation: Mutation) {
+  // if a position mutation has already found an element to move, don't move
+  // any more elements
+  if (mutation.kind === 'position' && mutation.elements.size === 1) return;
+
   const existingElements = new Set(mutation.elements);
-  const newElements: Set<Element> = new Set();
   const matchingElements = document.querySelectorAll(mutation.selector);
 
   matchingElements.forEach(el => {
-    newElements.add(el);
     if (!existingElements.has(el)) {
       mutation.elements.add(el);
       startMutating(mutation, el);
-    }
-  });
-
-  existingElements.forEach(el => {
-    if (!newElements.has(el)) {
-      mutation.elements.delete(el);
-      stopMutating(mutation, el);
     }
   });
 }
