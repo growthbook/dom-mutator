@@ -89,11 +89,11 @@ function queueIfNeeded(
       val.insertBeforeNode !== currentVal.insertBeforeNode
     ) {
       record.isDirty = true;
-      queueDOMUpdates();
+      runDOMUpdates();
     }
   } else if (val !== currentVal) {
     record.isDirty = true;
-    queueDOMUpdates();
+    runDOMUpdates();
   }
 }
 
@@ -260,8 +260,6 @@ function setPropertyValue<T extends ElementPropertyRecord<any, any>>(
   m.setValue(el, val);
 }
 
-let raf = false;
-
 function setValue(m: ElementRecord, el: Element) {
   m.html && setPropertyValue<HTMLRecord>(el, 'html', m.html);
   m.classes && setPropertyValue<ClassnameRecord>(el, 'class', m.classes);
@@ -270,15 +268,9 @@ function setValue(m: ElementRecord, el: Element) {
     setPropertyValue<AttributeRecord>(el, attr, m.attributes[attr]);
   });
 }
-function setValues() {
-  raf = false;
+
+function runDOMUpdates() {
   elements.forEach(setValue);
-}
-function queueDOMUpdates() {
-  if (!raf) {
-    raf = true;
-    requestAnimationFrame(setValues);
-  }
 }
 
 // find or create ElementPropertyRecord, add mutation to it, then run
