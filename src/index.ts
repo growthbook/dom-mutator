@@ -49,6 +49,12 @@ function createElementPropertyRecord(
     el,
     observer: new MutationObserver(() => {
       const currentValue = getCurrentValue(el);
+      if (
+        attr === 'position' &&
+        currentValue.parentNode === record.virtualValue.parentNode &&
+        currentValue.insertBeforeNode === record.virtualValue.insertBeforeNode
+      )
+        return;
       if (currentValue === record.virtualValue) return;
       record.originalValue = currentValue;
       mutationRunner(record);
@@ -57,7 +63,16 @@ function createElementPropertyRecord(
     setValue,
     getCurrentValue,
   };
-  record.observer.observe(el, getObserverInit(attr));
+  if (attr === 'position' && el.parentNode) {
+    record.observer.observe(el.parentNode, {
+      childList: true,
+      subtree: true,
+      attributes: false,
+      characterData: false,
+    });
+  } else {
+    record.observer.observe(el, getObserverInit(attr));
+  }
   return record;
 }
 
