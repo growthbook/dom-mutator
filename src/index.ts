@@ -179,6 +179,19 @@ const getElementPosition = (el: Element): ElementPositionWithDomNode => {
   };
 };
 const setElementPosition = (el: Element, value: ElementPositionWithDomNode) => {
+  if (
+    value.insertBeforeNode &&
+    !value.parentNode.contains(value.insertBeforeNode)
+  ) {
+    console.error(
+      'position mutation skipped - insertBeforeNode not a child of parent',
+      {
+        el,
+        ...value,
+      }
+    );
+    return;
+  }
   value.parentNode.insertBefore(el, value.insertBeforeNode);
 };
 function getElementPositionRecord(element: Element): PositionRecord {
