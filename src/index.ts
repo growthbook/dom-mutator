@@ -47,7 +47,18 @@ function createElementPropertyRecord(
     virtualValue: currentValue,
     mutations: [],
     el,
+    _positionTimeout: null,
     observer: new MutationObserver(() => {
+      // enact a 1 second timeout that blocks subsequent firing of the
+      // observer until the timeout is complete. This will prevent multiple
+      // mutations from firing in quick succession, which can cause the
+      // mutation to be reverted before the DOM has a chance to update.
+      if (attr === 'position' && record._positionTimeout) return;
+      else if (attr === 'position')
+        record._positionTimeout = setTimeout(() => {
+          record._positionTimeout = null;
+        }, 1000);
+
       const currentValue = getCurrentValue(el);
       if (
         attr === 'position' &&
