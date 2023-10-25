@@ -47,8 +47,25 @@ function createElementPropertyRecord(
     virtualValue: currentValue,
     mutations: [],
     el,
+    _positionTimeout: null,
     observer: new MutationObserver(() => {
+      // enact a 1 second timeout that blocks subsequent firing of the
+      // observer until the timeout is complete. This will prevent multiple
+      // mutations from firing in quick succession, which can cause the
+      // mutation to be reverted before the DOM has a chance to update.
+      if (attr === 'position' && record._positionTimeout) return;
+      else if (attr === 'position')
+        record._positionTimeout = setTimeout(() => {
+          record._positionTimeout = null;
+        }, 1000);
+
       const currentValue = getCurrentValue(el);
+      if (
+        attr === 'position' &&
+        currentValue.parentNode === record.virtualValue.parentNode &&
+        currentValue.insertBeforeNode === record.virtualValue.insertBeforeNode
+      )
+        return;
       if (currentValue === record.virtualValue) return;
       record.originalValue = currentValue;
       mutationRunner(record);
@@ -57,7 +74,16 @@ function createElementPropertyRecord(
     setValue,
     getCurrentValue,
   };
-  record.observer.observe(el, getObserverInit(attr));
+  if (attr === 'position' && el.parentNode) {
+    record.observer.observe(el.parentNode, {
+      childList: true,
+      subtree: true,
+      attributes: false,
+      characterData: false,
+    });
+  } else {
+    record.observer.observe(el, getObserverInit(attr));
+  }
   return record;
 }
 
@@ -74,11 +100,11 @@ function queueIfNeeded(
       val.insertBeforeNode !== currentVal.insertBeforeNode
     ) {
       record.isDirty = true;
-      queueDOMUpdates();
+      runDOMUpdates();
     }
   } else if (val !== currentVal) {
     record.isDirty = true;
-    queueDOMUpdates();
+    runDOMUpdates();
   }
 }
 
@@ -153,6 +179,14 @@ const getElementPosition = (el: Element): ElementPositionWithDomNode => {
   };
 };
 const setElementPosition = (el: Element, value: ElementPositionWithDomNode) => {
+  if (
+    value.insertBeforeNode &&
+    !value.parentNode.contains(value.insertBeforeNode)
+  ) {
+    // skip position mutation - insertBeforeNode not a child of parent. happens
+    // when mutation observer for indvidual element fires out of order
+    return;
+  }
   value.parentNode.insertBefore(el, value.insertBeforeNode);
 };
 function getElementPositionRecord(element: Element): PositionRecord {
@@ -245,8 +279,6 @@ function setPropertyValue<T extends ElementPropertyRecord<any, any>>(
   m.setValue(el, val);
 }
 
-let raf = false;
-
 function setValue(m: ElementRecord, el: Element) {
   m.html && setPropertyValue<HTMLRecord>(el, 'html', m.html);
   m.classes && setPropertyValue<ClassnameRecord>(el, 'class', m.classes);
@@ -255,15 +287,9 @@ function setValue(m: ElementRecord, el: Element) {
     setPropertyValue<AttributeRecord>(el, attr, m.attributes[attr]);
   });
 }
-function setValues() {
-  raf = false;
+
+function runDOMUpdates() {
   elements.forEach(setValue);
-}
-function queueDOMUpdates() {
-  if (!raf) {
-    raf = true;
-    requestAnimationFrame(setValues);
-  }
 }
 
 // find or create ElementPropertyRecord, add mutation to it, then run
@@ -303,22 +329,17 @@ function stopMutating(mutation: Mutation, el: Element) {
 
 // maintain list of elements associated with mutation
 function refreshElementsSet(mutation: Mutation) {
+  // if a position mutation has already found an element to move, don't move
+  // any more elements
+  if (mutation.kind === 'position' && mutation.elements.size === 1) return;
+
   const existingElements = new Set(mutation.elements);
-  const newElements: Set<Element> = new Set();
   const matchingElements = document.querySelectorAll(mutation.selector);
 
   matchingElements.forEach(el => {
-    newElements.add(el);
     if (!existingElements.has(el)) {
       mutation.elements.add(el);
       startMutating(mutation, el);
-    }
-  });
-
-  existingElements.forEach(el => {
-    if (!newElements.has(el)) {
-      mutation.elements.delete(el);
-      stopMutating(mutation, el);
     }
   });
 }
