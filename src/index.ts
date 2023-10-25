@@ -183,13 +183,8 @@ const setElementPosition = (el: Element, value: ElementPositionWithDomNode) => {
     value.insertBeforeNode &&
     !value.parentNode.contains(value.insertBeforeNode)
   ) {
-    console.error(
-      'position mutation skipped - insertBeforeNode not a child of parent',
-      {
-        el,
-        ...value,
-      }
-    );
+    // skip position mutation - insertBeforeNode not a child of parent. happens
+    // when mutation observer for indvidual element fires out of order
     return;
   }
   value.parentNode.insertBefore(el, value.insertBeforeNode);
