@@ -1,8 +1,6 @@
 export const validAttributeName = /^[a-zA-Z:_][a-zA-Z0-9:_.-]*$/;
 const nullController: MutationController = {
   revert: () => {},
-  stop: () => {},
-  start: () => {},
 };
 
 const elements: Map<Element, ElementRecord> = new Map();
@@ -411,12 +409,6 @@ function newMutation(m: Mutation): MutationController {
     revert: () => {
       revertMutation(m);
     },
-    stop: () => {
-       disconnectGlobalObserver()
-    },
-    start: () => {
-       connectGlobalObserver()
-    }
   };
 }
 
@@ -536,8 +528,6 @@ function declarative({
 
 export type MutationController = {
   revert: () => void;
-  stop: () => void;
-  start: () => void;
 };
 
 export type DeclarativeMutation = {
