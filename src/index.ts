@@ -58,7 +58,9 @@ function createElementPropertyRecord(
         record._positionTimeout = setTimeout(() => {
           record._positionTimeout = null;
         }, 1000);
+
       const currentValue = getCurrentValue(el);
+      
       if (
         attr === 'position' &&
         currentValue.parentNode === record.virtualValue.parentNode &&
@@ -358,7 +360,9 @@ let paused: boolean = false;
 export function pauseGlobalObserver() {
   paused = true;
 }
-export function isGlobalObserverPaused() {return paused;}
+export function isGlobalObserverPaused() {
+  return paused;
+}
 export function resumeGlobalObserver() {
   paused = false;
   refreshAllElementSets();
@@ -396,7 +400,7 @@ export const getHtmlMutationRecordsFromSelector = (selector: string) => {
     if (record) records.push(record);
   });
   return records;
-}
+};
 
 function newMutation(m: Mutation): MutationController {
   // Not in a browser
