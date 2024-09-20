@@ -405,8 +405,8 @@ function newMutation(m: Mutation): MutationController {
   if (typeof document === 'undefined') return nullController;
   // add to global index of mutations
   mutations.add(m);
-  refreshElementsSet(m);
   // run refresh on init to establish list of elements associated w/ mutation
+  refreshElementsSet(m);
   return {
     revert: () => {
       revertMutation(m);
