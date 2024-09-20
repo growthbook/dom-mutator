@@ -52,7 +52,7 @@ function createElementPropertyRecord(
       // observer until the timeout is complete. This will prevent multiple
       // mutations from firing in quick succession, which can cause the
       // mutation to be reverted before the DOM has a chance to update.
-      if(paused) return;
+      if (paused) return;
       if (attr === 'position' && record._positionTimeout) return;
       else if (attr === 'position')
         record._positionTimeout = setTimeout(() => {
@@ -60,7 +60,6 @@ function createElementPropertyRecord(
         }, 1000);
 
       const currentValue = getCurrentValue(el);
-      
       if (
         attr === 'position' &&
         currentValue.parentNode === record.virtualValue.parentNode &&
