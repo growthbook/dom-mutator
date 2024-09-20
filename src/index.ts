@@ -66,9 +66,8 @@ function createElementPropertyRecord(
         currentValue.insertBeforeNode === record.virtualValue.insertBeforeNode
       )
         return;
-
-      record.originalValue = record.originalValue ?? currentValue;
       if (currentValue === record.virtualValue) return;
+      record.originalValue = currentValue;
       mutationRunner(record);
     }),
     mutationRunner,
@@ -383,7 +382,7 @@ export function connectGlobalObserver() {
   refreshAllElementSets();
   observer.observe(document.documentElement, {
     childList: true,
-    subtree: false,
+    subtree: true,
     attributes: false,
     characterData: false,
   });
