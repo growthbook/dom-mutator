@@ -32,7 +32,6 @@ function getElementRecord(element: Element): ElementRecord {
 
   return record;
 }
-
 function createElementPropertyRecord(
   el: Element,
   attr: string,
@@ -53,6 +52,7 @@ function createElementPropertyRecord(
       // observer until the timeout is complete. This will prevent multiple
       // mutations from firing in quick succession, which can cause the
       // mutation to be reverted before the DOM has a chance to update.
+      if (paused) return;
       if (attr === 'position' && record._positionTimeout) return;
       else if (attr === 'position')
         record._positionTimeout = setTimeout(() => {
@@ -335,7 +335,6 @@ function refreshElementsSet(mutation: Mutation) {
 
   const existingElements = new Set(mutation.elements);
   const matchingElements = document.querySelectorAll(mutation.selector);
-
   matchingElements.forEach(el => {
     if (!existingElements.has(el)) {
       mutation.elements.add(el);
@@ -354,20 +353,32 @@ function refreshAllElementSets() {
   mutations.forEach(refreshElementsSet);
 }
 
+// pause/resume global observer
+let paused: boolean = false;
+export function pauseGlobalObserver() {
+  paused = true;
+}
+export function isGlobalObserverPaused() {
+  return paused;
+}
+export function resumeGlobalObserver() {
+  paused = false;
+  refreshAllElementSets();
+}
+
 // Observer for elements that don't exist in the DOM yet
 let observer: MutationObserver;
+
 export function disconnectGlobalObserver() {
   observer && observer.disconnect();
 }
 export function connectGlobalObserver() {
   if (typeof document === 'undefined') return;
-
   if (!observer) {
     observer = new MutationObserver(() => {
       refreshAllElementSets();
     });
   }
-
   refreshAllElementSets();
   observer.observe(document.documentElement, {
     childList: true,
@@ -376,9 +387,18 @@ export function connectGlobalObserver() {
     characterData: false,
   });
 }
-
 // run on init
 connectGlobalObserver();
+
+export const getHtmlMutationRecordsFromSelector = (selector: string) => {
+  const elements = document.querySelectorAll(selector);
+  const records: HTMLRecord[] = [];
+  elements.forEach(el => {
+    const record = getElementHTMLRecord(el);
+    if (record) records.push(record);
+  });
+  return records;
+};
 
 function newMutation(m: Mutation): MutationController {
   // Not in a browser
