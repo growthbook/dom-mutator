@@ -56,7 +56,7 @@ function createElementPropertyRecord(
       // mutation to be reverted before the DOM has a chance to update.
 
       // rate limit to 10 mutations per second
-      if (record.rateLimitCount > 10) {
+      if (record.rateLimitCount >= 10) {
         return;
       }
       record.rateLimitCount++;
