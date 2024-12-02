@@ -53,6 +53,7 @@ function createElementPropertyRecord(
       // observer until the timeout is complete. This will prevent multiple
       // mutations from firing in quick succession, which can cause the
       // mutation to be reverted before the DOM has a chance to update.
+      if(runRateLimiterAndCheck()) return;
       if (attr === 'position' && record._positionTimeout) return;
       else if (attr === 'position')
         record._positionTimeout = setTimeout(() => {
@@ -352,6 +353,35 @@ function revertMutation(mutation: Mutation) {
 
 function refreshAllElementSets() {
   mutations.forEach(refreshElementsSet);
+}
+// rate limit to 100 refresh per second then cool down for 10 seconds
+const rateLimiter = {
+  rateLimit: 100,
+  rateLimitTime: 1000,
+  refreshCount: 0,
+  cooldown: false,
+  cooldownTime: 10000,
+};
+
+// rate limit to 100 refresh per second then cool down for 10 seconds
+const runRateLimiterAndCheck = () => {
+  if (rateLimiter.cooldown) {
+    return false;
+  }
+  rateLimiter.refreshCount++;
+  //remove a refresh count every second
+  setTimeout(() => {
+    rateLimiter.refreshCount--;
+  },rateLimiter.rateLimitTime);
+  //if the refresh count is greater than the rate limit, set cool down
+  if (rateLimiter.refreshCount >= rateLimiter.rateLimit) {
+    rateLimiter.cooldown = true;
+    setTimeout(() => {
+      rateLimiter.cooldown = false;
+      rateLimiter.refreshCount = 0;
+    }, rateLimiter.cooldownTime);
+  }
+  return rateLimiter.cooldown;
 }
 
 // Observer for elements that don't exist in the DOM yet
