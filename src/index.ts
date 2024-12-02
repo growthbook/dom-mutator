@@ -48,12 +48,25 @@ function createElementPropertyRecord(
     mutations: [],
     el,
     _positionTimeout: null,
+    rateLimitCount: 0,
     observer: new MutationObserver(() => {
       // enact a 1 second timeout that blocks subsequent firing of the
       // observer until the timeout is complete. This will prevent multiple
       // mutations from firing in quick succession, which can cause the
       // mutation to be reverted before the DOM has a chance to update.
-      if(runRateLimiterAndCheck()) return;
+
+      // rate limit to 10 mutations per second
+      if (record.rateLimitCount > 10) {
+        return;
+      }
+      record.rateLimitCount++;
+      setTimeout(() => {
+        record.rateLimitCount = record.rateLimitCount - 1;
+        if(record.rateLimitCount <= 0) {
+          record.rateLimitCount = 0;
+        }
+      }, 1000);
+
       if (attr === 'position' && record._positionTimeout) return;
       else if (attr === 'position')
         record._positionTimeout = setTimeout(() => {
@@ -354,35 +367,7 @@ function revertMutation(mutation: Mutation) {
 function refreshAllElementSets() {
   mutations.forEach(refreshElementsSet);
 }
-// rate limit to 100 refresh per second then cool down for 10 seconds
-const rateLimiter = {
-  rateLimit: 100,
-  rateLimitTime: 1000,
-  refreshCount: 0,
-  cooldown: false,
-  cooldownTime: 10000,
-};
 
-// rate limit to 100 refresh per second then cool down for 10 seconds
-const runRateLimiterAndCheck = () => {
-  if (rateLimiter.cooldown) {
-    return false;
-  }
-  rateLimiter.refreshCount++;
-  //remove a refresh count every second
-  setTimeout(() => {
-    rateLimiter.refreshCount--;
-  },rateLimiter.rateLimitTime);
-  //if the refresh count is greater than the rate limit, set cool down
-  if (rateLimiter.refreshCount >= rateLimiter.rateLimit) {
-    rateLimiter.cooldown = true;
-    setTimeout(() => {
-      rateLimiter.cooldown = false;
-      rateLimiter.refreshCount = 0;
-    }, rateLimiter.cooldownTime);
-  }
-  return rateLimiter.cooldown;
-}
 
 // Observer for elements that don't exist in the DOM yet
 let observer: MutationObserver;
