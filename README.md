@@ -195,6 +195,30 @@ disconnectGlobalObserver();
 connectGlobalObserver();
 ```
 
+## Pausing and Resuming All Mutations
+When a mutation is added, a separate `MutationObserver` is created for it.
+
+To ensure **all** mutations are paused, you can use the global `pauseGlobalObserver` and `resumeGlobalObserver` functions. These functions allow you to globally control mutation observation. Additionally, the `isGlobalObserverPaused` function is available to check if the global observer is currently paused.
+
+### Example Usage:
+```ts
+import { pauseGlobalObserver, resumeGlobalObserver, isGlobalObserverPaused } from 'dom-mutator';
+
+// Pause the global observer
+if (!isGlobalObserverPaused()) {
+    pauseGlobalObserver();
+}
+
+// Make changes that would otherwise trigger mutation observers
+
+// Resume the global observer
+resumeGlobalObserver();
+```
+### Key Functions
+- `pauseGlobalObserver()`: Pauses all mutation observers globally.
+- `resumeGlobalObserver()`: Resumes all mutation observers.
+- `isGlobalObserverPaused()`: Returns true if the global observer is currently paused.
+
 ## Developing
 
 Built with [TSDX](https://github.com/formium/tsdx).
