@@ -47,14 +47,29 @@ function createElementPropertyRecord(
     mutations: [],
     el,
     _positionTimeout: null,
+    rateLimitCount: 0,
     observer: new MutationObserver(() => {
-      // enact a 1 second timeout that blocks subsequent firing of the
-      // observer until the timeout is complete. This will prevent multiple
-      // mutations from firing in quick succession, which can cause the
-      // mutation to be reverted before the DOM has a chance to update.
+      // if paused, don't run mutations
       if (paused) return;
+
+      // rate limit to 10 mutations per second
+      if (record.rateLimitCount >= 10) {
+        return;
+      }
+      record.rateLimitCount++;
+      setTimeout(() => {
+        record.rateLimitCount = record.rateLimitCount - 1;
+        if (record.rateLimitCount <= 0) {
+          record.rateLimitCount = 0;
+        }
+      }, 1000);
+
       if (attr === 'position' && record._positionTimeout) return;
       else if (attr === 'position')
+        // enact a 1 second timeout that blocks subsequent firing of the
+        // observer until the timeout is complete. This will prevent multiple
+        // mutations from firing in quick succession, which can cause the
+        // mutation to be reverted before the DOM has a chance to update.
         record._positionTimeout = setTimeout(() => {
           record._positionTimeout = null;
         }, 1000);

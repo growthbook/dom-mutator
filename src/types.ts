@@ -49,6 +49,7 @@ interface ElementPropertyRecord<T, V> {
   isDirty: boolean;
   mutations: T[];
   el: Element;
+  rateLimitCount: number;
   getCurrentValue: (el: Element) => V;
   setValue: (el: Element, value: V) => void;
   mutationRunner: (record: ElementPropertyRecord<T, V>) => void;
