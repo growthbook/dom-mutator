@@ -145,12 +145,24 @@ function attrMutationRunner(record: AttributeRecord) {
   queueIfNeeded(val, record);
 }
 
+/**
+ * Elements a mutation never touches, however its selector reaches them.
+ * Changing a `<script>` that hasn't run yet (such as a JSON-LD block) can make
+ * it run, and a `<base>` decides where relative script URLs load from.
+ */
+const PROTECTED_ELEMENTS = new Set(['script', 'base']);
+
+function isProtected(el: Element) {
+  return PROTECTED_ELEMENTS.has(el.localName);
+}
+
 function _loadDOMNodes({
   parentSelector,
   insertBeforeSelector,
 }: ElementPosition): ElementPositionWithDomNode | null {
   const parentNode = document.querySelector<HTMLElement>(parentSelector);
-  if (!parentNode) return null;
+  // Inserting a child into a <script> that hasn't run can make it run.
+  if (!parentNode || isProtected(parentNode)) return null;
   const insertBeforeNode = insertBeforeSelector
     ? document.querySelector<HTMLElement>(insertBeforeSelector)
     : null;
@@ -351,6 +363,7 @@ function refreshElementsSet(mutation: Mutation) {
   const existingElements = new Set(mutation.elements);
   const matchingElements = document.querySelectorAll(mutation.selector);
   matchingElements.forEach(el => {
+    if (isProtected(el)) return;
     if (!existingElements.has(el)) {
       mutation.elements.add(el);
       startMutating(mutation, el);

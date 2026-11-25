@@ -460,4 +460,53 @@ describe('mutate', () => {
     await sleep();
     expect(document.body.innerHTML).toEqual(initial);
   });
+
+  it('never mutates <script> or <base>, whatever the selector', async () => {
+    const protectedHtml =
+      '<base href="/"><script type="application/ld+json">{}</script>' +
+      '<script id="__NEXT_DATA__" type="application/json">{}</script>';
+    document.body.innerHTML = protectedHtml + '<p class="text">hi</p>';
+
+    const mutations: DeclarativeMutation[] = [
+      // Selectors that reach a <script> without naming it
+      {
+        selector: '[type="application/ld+json"]',
+        action: 'remove',
+        attribute: 'type',
+      },
+      {
+        selector: '#__NEXT_DATA__',
+        action: 'set',
+        attribute: 'html',
+        value: 'x()',
+      },
+      {
+        selector: '\\73 cript',
+        action: 'set',
+        attribute: 'src',
+        value: 'x.js',
+      },
+      { selector: '*', action: 'append', attribute: 'class', value: 'all' },
+      {
+        selector: 'base',
+        action: 'set',
+        attribute: 'href',
+        value: 'https://evil.example/',
+      },
+      // Moving an element into a <script>
+      {
+        selector: '.text',
+        action: 'set',
+        attribute: 'position',
+        parentSelector: 'script',
+      },
+    ];
+    mutations.forEach(m => cleanup(mutate.declarative(m)));
+    await sleep();
+    await sleep();
+
+    expect(document.body.innerHTML).toEqual(
+      protectedHtml + '<p class="text all">hi</p>'
+    );
+  });
 });
